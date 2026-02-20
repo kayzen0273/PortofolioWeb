@@ -1553,11 +1553,11 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove, serverTimestamp, query, limitToLast, orderByChild }
         from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged }
+    import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
         from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
 
     // =============================================
-    // 🔥 GANTI DENGAN FIREBASE CONFIG KAMU
+    // 🔥 FIREBASE CONFIG
     // =============================================
     const firebaseConfig = {
         apiKey: "AIzaSyAQn-HOc2ut9_Dcw0LiPhvUMfzrjaLhj2Q",
@@ -1573,8 +1573,8 @@
 
     let db, auth, currentUser = null;
     let chatConfigOk = false;
+    let readOnlyUnsubscribe = null;
 
-    // Cek apakah config sudah diisi
     chatConfigOk = !firebaseConfig.apiKey.includes("GANTI");
 
     if (chatConfigOk) {
@@ -1583,15 +1583,10 @@
         auth = getAuth(app);
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                setupChatUI();
-            } else {
-                signInAnonymously(auth);
-            }
+            currentUser = user || null;
+            setupChatUI();
         });
     } else {
-        // Tampilkan setup guide
         showSetupGuide();
     }
 
@@ -1608,7 +1603,7 @@
                     <p>2. Buat project baru → Add Web App</p>
                     <p>3. Copy firebaseConfig ke kode HTML</p>
                     <p>4. Build → Realtime Database → Create database → <b>test mode</b></p>
-                    <p>5. Authentication → Sign-in method → Anonymous → Enable</p>
+                    <p>5. Authentication → Sign-in method → Google & GitHub → Enable</p>
                 </div>
                 <p class="text-xs text-gray-400">Chat room akan langsung berfungsi setelah config diisi ✅</p>
             </div>
@@ -1623,7 +1618,8 @@
         return div.innerHTML;
     }
 
-    function getAvatar(name) {
+    function getAvatar(photoURL, name) {
+        if (photoURL) return photoURL;
         const colors = ['0D9489','6366f1','f59e0b','ef4444','10b981','3b82f6','8b5cf6','ec4899'];
         const idx = name ? name.charCodeAt(0) % colors.length : 0;
         const initial = name ? name[0].toUpperCase() : '?';
@@ -1639,46 +1635,58 @@
         }) + ' WIB';
     }
 
-    function setupChatUI() {
-        // Ambil display name dari localStorage atau minta
-        let displayName = localStorage.getItem('chat_display_name');
-        const inputArea = document.getElementById('chat-input-area');
-
-        if (!displayName) {
-            // Mode read-only: tampilkan form join di input area, tapi tetap muat pesan
-            if (inputArea) {
-                inputArea.innerHTML = `
-                    <div class="flex flex-col items-center gap-3 py-4">
-                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">👀 Kamu sedang membaca — masukkan nama untuk ikut chat</p>
-                        <div class="flex gap-2 w-full max-w-sm">
-                            <input id="name-input" type="text" maxlength="24" placeholder="Nama kamu..." 
-                                class="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/30 transition-all">
-                            <button onclick="window.chatJoin()" 
-                                class="px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md">
-                                Gabung →
-                            </button>
-                        </div>
-                    </div>
-                `;
-                const inp = document.getElementById('name-input');
-                if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') window.chatJoin(); });
-            }
-
-            // Tetap muat dan tampilkan pesan dalam mode read-only
-            showMessagesReadOnly();
-            return;
-        }
-
-        // Sudah punya nama, tampilkan chat penuh
-        showChatFull(displayName);
+    // ── Login buttons UI ──────────────────────────────────
+    function renderLoginButtons(inputArea) {
+        if (!inputArea) return;
+        inputArea.innerHTML = `
+            <div class="flex flex-col items-center gap-3 py-5">
+                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">👀 Kamu sedang membaca — login untuk ikut chat</p>
+                <div class="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                    <!-- Google -->
+                    <button id="btn-login-google" onclick="window.chatLoginGoogle()"
+                        class="flex-1 flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-all active:scale-95 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-5 h-5 flex-shrink-0">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                        Login Google
+                    </button>
+                    <!-- GitHub -->
+                    <button id="btn-login-github" onclick="window.chatLoginGithub()"
+                        class="flex-1 flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-all active:scale-95 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 flex-shrink-0 fill-current">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
+                        Login GitHub
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
+    // ── Main UI router ────────────────────────────────────
+    function setupChatUI() {
+        const inputArea = document.getElementById('chat-input-area');
+
+        if (!currentUser) {
+            // Belum login → read-only + tombol login
+            renderLoginButtons(inputArea);
+            showMessagesReadOnly();
+        } else {
+            // Sudah login → full chat
+            showChatFull(currentUser);
+        }
+    }
+
+    // ── Read-only message listener ────────────────────────
     function showMessagesReadOnly() {
         const loader = document.getElementById('chat-loader');
         const container = document.getElementById('messages-container');
 
         const messagesRef = query(ref(db, 'chat_messages'), orderByChild('ts'), limitToLast(80));
-        onValue(messagesRef, (snapshot) => {
+        readOnlyUnsubscribe = onValue(messagesRef, (snapshot) => {
             if (loader) loader.remove();
             const data = snapshot.val();
             if (!container) return;
@@ -1692,7 +1700,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
                         </svg>
                         <p class="text-sm font-bold">Belum ada pesan</p>
-                        <p class="text-xs">Jadilah yang pertama menyapa! 👋</p>
+                        <p class="text-xs">Login dulu untuk menyapa! 👋</p>
                     </div>
                 `;
                 return;
@@ -1700,37 +1708,42 @@
 
             const messages = Object.entries(data).map(([key, val]) => ({key, ...val}));
             container.innerHTML = '';
-            // Read-only: render tanpa nama sendiri (null = tidak ada pesan milik kita)
             messages.forEach(msg => renderMsg(msg, null));
-
             if (wasAtBottom) container.scrollTop = container.scrollHeight;
         });
     }
 
-    window.chatJoin = function() {
-        const inp = document.getElementById('name-input');
-        const name = inp ? inp.value.trim() : '';
-        if (!name || name.length < 2) {
-            if (inp) { inp.classList.add('ring-2','ring-rose-500'); setTimeout(() => inp.classList.remove('ring-2','ring-rose-500'), 1500); }
-            return;
-        }
-        localStorage.setItem('chat_display_name', name);
-        setupChatUI();
-    };
+    // ── Full chat (logged in) ─────────────────────────────
+    function showChatFull(user) {
+        const displayName = user.displayName || 'Anonim';
+        const photoURL = user.photoURL || null;
+        const uid = user.uid;
 
-    function showChatFull(displayName) {
         const userStatus = document.getElementById('user-status-area');
         const inputArea = document.getElementById('chat-input-area');
         const container = document.getElementById('messages-container');
         const loader = document.getElementById('chat-loader');
         const isOwner = displayName.toLowerCase().includes('kurama');
 
+        // Determine provider badge
+        const providerIds = user.providerData ? user.providerData.map(p => p.providerId) : [];
+        const isGoogle = providerIds.includes('google.com');
+        const isGithub = providerIds.includes('github.com');
+        const providerBadge = isGoogle
+            ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 flex items-center gap-1"><svg viewBox="0 0 48 48" class="w-2.5 h-2.5"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Google</span>`
+            : isGithub
+            ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex items-center gap-1"><svg viewBox="0 0 24 24" class="w-2.5 h-2.5 fill-current"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</span>`
+            : '';
+
         // User status bar
         if (userStatus) {
             userStatus.innerHTML = `
                 <div class="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-2xl border border-gray-100 dark:border-gray-700">
-                    <img src="${getAvatar(displayName)}" class="w-8 h-8 rounded-full shadow-sm">
-                    <span class="text-xs font-bold text-gray-700 dark:text-gray-200 hidden sm:block">${escapeHtml(displayName)}</span>
+                    <img src="${getAvatar(photoURL, displayName)}" class="w-8 h-8 rounded-full shadow-sm object-cover" onerror="this.src='${getAvatar(null, displayName)}'">
+                    <div class="hidden sm:flex flex-col leading-none">
+                        <span class="text-xs font-bold text-gray-700 dark:text-gray-200">${escapeHtml(displayName)}</span>
+                    </div>
+                    ${providerBadge}
                     <button onclick="window.chatLogout()" class="px-2 py-1 text-[10px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors ml-1">Keluar</button>
                 </div>
             `;
@@ -1740,10 +1753,10 @@
         if (inputArea) {
             inputArea.innerHTML = `
                 <div class="flex gap-3 items-end">
-                    <img src="${getAvatar(displayName)}" class="w-9 h-9 rounded-full flex-shrink-0 mb-1 hidden sm:block shadow-sm">
+                    <img src="${getAvatar(photoURL, displayName)}" class="w-9 h-9 rounded-full flex-shrink-0 mb-1 hidden sm:block shadow-sm object-cover" onerror="this.src='${getAvatar(null, displayName)}'">
                     <div class="flex-1 relative">
                         <textarea id="message-input" rows="1" maxlength="500"
-                            placeholder="Tulis sesuatu, ${displayName.split(' ')[0]}..."
+                            placeholder="Tulis sesuatu, ${escapeHtml(displayName.split(' ')[0])}..."
                             class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-3xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all resize-none overflow-hidden max-h-32 pr-20 font-medium placeholder:text-gray-400 shadow-inner"></textarea>
                         <button onclick="window.chatSend()" 
                             class="absolute right-2 bottom-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-2xl transition-all active:scale-95 shadow-md font-bold text-xs h-[40px]">
@@ -1784,31 +1797,35 @@
 
             const messages = Object.entries(data).map(([key, val]) => ({key, ...val}));
             container.innerHTML = '';
-            messages.forEach(msg => renderMsg(msg, displayName));
-
+            messages.forEach(msg => renderMsg(msg, uid));
             if (wasAtBottom) container.scrollTop = container.scrollHeight;
         });
 
+        window._chatUid = uid;
         window._chatDisplayName = displayName;
+        window._chatPhotoURL = photoURL;
         window._chatDb = db;
     }
 
-    function renderMsg(msg, myName) {
+    // ── Render single message ─────────────────────────────
+    function renderMsg(msg, myUid) {
         const container = document.getElementById('messages-container');
         if (!container) return;
-        const isMe = msg.name === myName;
+        const isMe = myUid && msg.uid === myUid;
         const isOwner = (msg.name || '').toLowerCase().includes('kurama');
         const ts = formatTime(msg.ts);
+        const avatar = getAvatar(msg.photoURL || null, msg.name);
 
         const html = `
             <div class="flex gap-3 md:gap-4 group" data-key="${msg.key}">
                 <div class="flex-shrink-0">
-                    <img src="${getAvatar(msg.name)}" class="w-10 h-10 md:w-11 md:h-11 rounded-full shadow-sm border-2 border-white dark:border-slate-800">
+                    <img src="${avatar}" class="w-10 h-10 md:w-11 md:h-11 rounded-full shadow-sm border-2 border-white dark:border-slate-800 object-cover" onerror="this.src='${getAvatar(null, msg.name)}'">
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap mb-1.5">
                         <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">${escapeHtml(msg.name || 'Anonim')}</span>
                         ${isOwner ? `<span class="px-2 py-0.5 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase tracking-tight flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4.13-5.68Z" clip-rule="evenodd" /></svg>Owner</span>` : ''}
+                        ${msg.provider === 'google.com' ? `<span class="text-[9px] font-bold text-red-400">G</span>` : msg.provider === 'github.com' ? `<span class="text-[9px] font-bold text-gray-400">GH</span>` : ''}
                         <span class="text-[10px] text-gray-400">${ts}</span>
                         ${isMe ? `<button onclick="window.chatDelete('${msg.key}')" class="ml-auto opacity-0 group-hover:opacity-100 text-[10px] font-bold text-rose-400 hover:text-rose-600 transition-opacity">Hapus</button>` : ''}
                     </div>
@@ -1821,17 +1838,53 @@
         container.insertAdjacentHTML('beforeend', html);
     }
 
+    // ── OAuth login handlers ──────────────────────────────
+    async function loginWithProvider(provider, btnId) {
+        const btn = document.getElementById(btnId);
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+        try {
+            await signInWithPopup(auth, provider);
+            // onAuthStateChanged akan otomatis trigger setupChatUI()
+        } catch(e) {
+            console.error('Login failed:', e);
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+            // Tampilkan pesan error singkat
+            const inputArea = document.getElementById('chat-input-area');
+            if (inputArea) {
+                const errEl = document.createElement('p');
+                errEl.className = 'text-xs text-rose-500 text-center mt-1';
+                errEl.textContent = e.code === 'auth/popup-closed-by-user' ? 'Login dibatalkan.' : 'Login gagal, coba lagi.';
+                inputArea.appendChild(errEl);
+                setTimeout(() => errEl.remove(), 3000);
+            }
+        }
+    }
+
+    window.chatLoginGoogle = function() {
+        loginWithProvider(new GoogleAuthProvider(), 'btn-login-google');
+    };
+
+    window.chatLoginGithub = function() {
+        loginWithProvider(new GithubAuthProvider(), 'btn-login-github');
+    };
+
+    // ── Send message ──────────────────────────────────────
     window.chatSend = async function() {
         const inp = document.getElementById('message-input');
-        const name = window._chatDisplayName || localStorage.getItem('chat_display_name');
-        if (!inp || !name || !db) return;
+        if (!inp || !currentUser || !db) return;
         const text = inp.value.trim();
         if (!text) return;
+
+        const providerIds = currentUser.providerData ? currentUser.providerData.map(p => p.providerId) : [];
+        const provider = providerIds[0] || 'unknown';
 
         inp.disabled = true;
         try {
             await push(ref(db, 'chat_messages'), {
-                name: name,
+                uid: currentUser.uid,
+                name: currentUser.displayName || 'Anonim',
+                photoURL: currentUser.photoURL || null,
+                provider: provider,
                 text: text,
                 ts: serverTimestamp()
             });
@@ -1845,6 +1898,7 @@
         }
     };
 
+    // ── Delete message (hanya milik sendiri) ─────────────
     window.chatDelete = async function(key) {
         if (!db || !key) return;
         if (!confirm('Hapus pesan ini?')) return;
@@ -1853,25 +1907,20 @@
         } catch(e) { console.error(e); }
     };
 
-    window.chatLogout = function() {
-        localStorage.removeItem('chat_display_name');
-        window._chatDisplayName = null;
-        const statusArea = document.getElementById('user-status-area');
-        const inputArea = document.getElementById('chat-input-area');
-        if (statusArea) statusArea.innerHTML = '';
-        if (inputArea) inputArea.innerHTML = '';
-        setupChatUI();
+    // ── Logout ────────────────────────────────────────────
+    window.chatLogout = async function() {
+        try {
+            await signOut(auth);
+            // onAuthStateChanged akan reset currentUser → null → setupChatUI()
+            const statusArea = document.getElementById('user-status-area');
+            if (statusArea) statusArea.innerHTML = '';
+        } catch(e) { console.error(e); }
     };
 
-    // Expose for page switching
+    // ── Expose for page switching ─────────────────────────
     window.chatInit = function() {
         if (!chatConfigOk) { showSetupGuide(); return; }
-        if (!auth) return;
-        const user = auth.currentUser;
-        if (user) {
-            currentUser = user;
-            setupChatUI();
-        }
+        setupChatUI();
     };
     </script>
     
