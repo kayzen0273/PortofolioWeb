@@ -288,7 +288,7 @@
 </nav>
 
         <!-- Mobile Header -->
-<header id="mobile-header" class="md:hidden fixed top-4 left-4 right-4 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-lg rounded-2xl px-4 py-3 flex items-center justify-between transition-all duration-300">
+<header class="md:hidden fixed top-4 left-4 right-4 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-lg rounded-2xl px-4 py-3 flex items-center justify-between transition-all duration-300">
     <div class="flex items-center gap-3">
         <a href="#" onclick="showPage('home'); return false;" class="w-8 h-8 rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
             <img src="assets/images/logoajie.png" alt="Kurama Logo" class="w-full h-full object-cover">
@@ -1291,203 +1291,108 @@
     
     <!-- CHAT PAGE SECTION -->
     <div id="page-chat" class="page-section" style="display:none;">
-<style>
-/* ── Chat page shell ─────────────────────────────────────────── */
-/* Fills the full viewport minus the 80px sidebar on desktop.    */
-/* On mobile: full width, 100dvh.                                */
-#chat-page {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;          /* real viewport height on mobile too */
-    overflow: hidden;
-    background: #f8fafc;
-}
-.dark #chat-page { background: #0f172a; }
-
-@media (min-width: 768px) {
-    #chat-page {
-        padding-left: 80px;   /* sidebar offset */
-    }
-}
-
-/* Scrollable message list */
-#messages-container {
-    flex: 1 1 0%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-}
-#messages-container::-webkit-scrollbar { width: 4px; }
-#messages-container::-webkit-scrollbar-track { background: transparent; }
-#messages-container::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.08); border-radius: 4px;
-}
-.dark #messages-container::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.07);
-}
-
-/* Message bubble tails */
-.bubble-me    { border-radius: 18px 4px 18px 18px; }
-.bubble-other { border-radius: 4px 18px 18px 18px; }
-
-/* Voice speaking ring */
-.ring-speaking { box-shadow: 0 0 0 2.5px #10b981, 0 0 10px rgba(16,185,129,0.35); }
-
-/* Voice bottom-sheet slide-up */
-#voice-sheet {
-    transform: translateY(100%);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform .28s cubic-bezier(.32,.72,0,1), opacity .22s ease;
-}
-#voice-sheet.open {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
-}
-</style>
-
-<div id="chat-page">
-
-    <!-- ══════════════════════ BODY ══════════════════════ -->
-    <!-- Top bar removed — all controls now inside the chat frame -->
-    <div class="flex-1 flex overflow-hidden min-h-0">
-
-        <!-- Chat column -->
-        <div class="flex-1 flex flex-col min-w-0">
-
-            <!-- ── Inner chat header (inside the frame, tidak menghalangi nav) ── -->
-            <div class="flex-shrink-0 flex items-center justify-between
-                        h-14 px-3 sm:px-4
-                        bg-white dark:bg-[#0f172a]
-                        border-b border-gray-100 dark:border-gray-800">
-
-                <!-- LEFT: back (mobile) + room identity -->
-                <div class="flex items-center gap-2.5">
-                    <button onclick="showPage('home')"
-                            class="md:hidden w-8 h-8 flex items-center justify-center rounded-xl
-                                   text-gray-400 hover:text-primary-600
-                                   hover:bg-gray-100 dark:hover:bg-slate-800
-                                   transition-all active:scale-90">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                    </button>
-                    <div class="flex items-center gap-2.5">
-                        <div class="relative flex-shrink-0">
-                            <div class="w-8 h-8 md:w-9 md:h-9 rounded-xl
-                                        bg-gradient-to-br from-primary-500 to-primary-700
-                                        shadow flex items-center justify-center">
-                                <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 md:w-[18px] md:h-[18px] text-white">
-                                    <path fill-rule="evenodd" d="M4.804 21.644A6.707 6.707 0 006 21.75a6.721 6.721 0 003.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 01-.814 1.686.75.75 0 00.44 1.223zM8.25 10.875a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25zM10.875 12a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0zm4.875-1.125a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25z" clip-rule="evenodd"/>
-                                </svg>
-                            </div>
-                            <span class="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-70"></span>
-                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 border-[1.5px] border-white dark:border-[#0f172a]"></span>
-                            </span>
-                        </div>
-                        <div class="leading-none">
-                            <p class="text-sm font-bold text-gray-900 dark:text-white">Chat Room</p>
-                            <p class="text-[10px] text-emerald-500 font-medium mt-0.5">● Live · Public</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- RIGHT: user status + voice toggle (di dalam bingkai) + theme -->
-                <div class="flex items-center gap-1.5 md:gap-2">
-                    <div id="user-status-area"></div>
-
-                    <!-- Voice toggle — sekarang di dalam bingkai chat -->
-                    <button id="voice-toggle-btn" onclick="window.toggleVoice()"
-                            title="Voice Channel"
-                            class="relative w-8 h-8 md:w-9 md:h-9 flex items-center justify-center
-                                   rounded-xl bg-gray-100 dark:bg-slate-800
-                                   text-gray-500 dark:text-gray-400
-                                   hover:bg-violet-100 dark:hover:bg-violet-900/30
-                                   hover:text-violet-600 dark:hover:text-violet-400
-                                   transition-all active:scale-90">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                        </svg>
-                        <span id="voice-dot" class="hidden absolute -top-0.5 -right-0.5
-                               w-2.5 h-2.5 rounded-full bg-emerald-500
-                               border-2 border-white dark:border-[#0f172a]"></span>
-                    </button>
-
-                    <!-- Theme toggle -->
-                    <button id="theme-toggle-chat" onclick="toggleTheme()"
-                            class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl
-                                   bg-gray-100 dark:bg-slate-800
-                                   text-gray-500 dark:text-gray-400
-                                   hover:bg-gray-200 dark:hover:bg-slate-700
-                                   transition-all active:scale-90">
-                        <svg id="theme-toggle-light-icon-chat" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
-                        </svg>
-                        <svg id="theme-toggle-dark-icon-chat" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <!-- ── End inner chat header ── -->
-
-            <!-- Messages list -->
-            <div id="messages-container" class="flex-1 px-3 sm:px-5 md:px-7 py-4">
-                <div id="chat-loader" class="h-full flex flex-col items-center justify-center gap-3">
-                    <div class="w-8 h-8 rounded-full border-2
-                                border-gray-200 dark:border-gray-700
-                                border-t-primary-500 animate-spin"></div>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">Memuat pesan…</p>
-                </div>
-            </div>
-
-            <!-- Input bar -->
-            <div id="chat-input-area"
-                 class="flex-shrink-0 border-t border-gray-100 dark:border-gray-800
-                        bg-white dark:bg-[#0f172a]
-                        px-3 sm:px-5 md:px-7 py-2.5 md:py-3">
-            </div>
+<main class="flex-1 w-full transition-all duration-300 pt-20 md:pt-0">
+            <!-- Header (Desktop) -->
+<header id="main-header-chat" class="hidden md:flex sticky top-0 z-40 px-6 md:pl-[120px] md:pr-10 py-4 flex-row justify-between items-center gap-4 transition-all duration-300 border-b border-transparent bg-[#F4F7FE]/0 dark:bg-[#0F172A]/0 backdrop-blur-none">
+    <div class="hidden md:flex items-center bg-white dark:bg-[#1e293b] rounded-[9px] px-4 py-2.5 shadow-md border-none w-[250px] ring-1 ring-gray-100 dark:ring-gray-700">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-gray-400 hover:text-gray-500 transition-colors mr-2"><path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clip-rule="evenodd" /></svg>
+        <input type="text" placeholder="Search..." class="bg-transparent border-none outline-none text-sm text-gray-600 dark:text-gray-200 w-full placeholder-gray-400">
+    </div>
+    <!-- Center: Breadcrumb -->
+    <div class="flex justify-start md:justify-center md:absolute md:left-1/2 md:-translate-x-1/2 w-auto mt-0">
+        <div class="flex items-center text-xs font-mono text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+            <span class="hover:text-[#0D9489] transition-colors cursor-pointer">Home</span>
+            <span class="mx-3 text-[#0D9489]/50">/</span>
+            <span class="text-gray-600 dark:text-gray-300 font-bold">Chat Room</span>
         </div>
-
-
-        <!-- Voice sidebar — desktop lg+ only -->
-        <aside id="voice-sidebar"
-               class="hidden lg:flex flex-col flex-shrink-0 w-64 xl:w-72
-                      bg-white dark:bg-slate-900/60
-                      border-l border-gray-100 dark:border-gray-800
-                      overflow-y-auto">
-        </aside>
     </div>
-
-    <!-- ══════════════════ VOICE BOTTOM-SHEET (mobile/tablet) ══════════════════ -->
-    <!-- Overlay -->
-    <div id="voice-overlay"
-         onclick="window.closeVoice()"
-         class="hidden lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-40">
+    <div class="flex items-center gap-4 w-full md:w-auto justify-end">
+        <div class="flex items-center gap-3">
+             <button id="theme-toggle-chat" onclick="toggleTheme()" class="interactive p-2 rounded-full text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 bg-white dark:bg-[#1e293b] shadow-md ring-1 ring-gray-200 dark:ring-gray-700 transition-all active:scale-95">
+                <svg id="theme-toggle-light-icon-chat" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 hidden dark:block"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
+                <svg id="theme-toggle-dark-icon-chat" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 block dark:hidden"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+            </button>
+            <!-- Notification Icon (Links to Chat Room) -->
+            <a href="#" onclick="showPage('chat'); return false;" class="interactive p-2 rounded-full text-gray-400 hover:text-primary-600 bg-white dark:bg-[#1e293b] shadow-md ring-1 ring-gray-200 dark:ring-gray-700 transition-all active:scale-95 relative">
+                <span class="absolute top-1.5 right-2 w-2 h-2 bg-red-400 rounded-full border border-white animate-pulse"></span>
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
+            </a>
+            <!-- Language Toggle (Desktop) -->
+             <button id="desktop-lang-toggle-chat" class="interactive p-2 rounded-full bg-white dark:bg-[#1e293b] shadow-md ring-1 ring-gray-200 dark:ring-gray-700 transition-all active:scale-95 flex items-center justify-center w-9 h-9">
+               <img id="desktop-lang-flag-chat" src="https://flagcdn.com/w40/id.png" alt="Switch Language" class="w-5 h-3.5 object-cover rounded shadow-sm opacity-80 hover:opacity-100 transition-opacity">
+            </button>
+        </div>
     </div>
-    <!-- Sheet -->
-    <div id="voice-sheet"
-         class="lg:hidden fixed bottom-0 left-0 right-0 z-50
-                bg-white dark:bg-slate-900
-                rounded-t-3xl shadow-2xl border-t border-gray-100 dark:border-gray-800
-                max-h-[72dvh]">
-        <!-- Drag handle -->
-        <button onclick="window.closeVoice()" class="w-full flex justify-center pt-3 pb-2">
-            <div class="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700"></div>
-        </button>
-        <div id="voice-sheet-body" class="overflow-y-auto pb-safe" style="max-height:calc(72dvh - 44px)"></div>
-    </div>
-
-</div><!-- #chat-page -->
-
+</header>
 <script src="assets/js/header-scroll.js"></script>
 <script src="assets/js/weather.js"></script>
 <script src="assets/js/security.js"></script>
 
+            <div class="px-6 md:pl-[120px] md:pr-10 pb-8 md:pb-4">
+                <div class="max-w-4xl mx-auto h-[calc(100vh-120px)] flex flex-col pt-6">
+                    <div class="bg-white dark:bg-[#1e293b] rounded-[32px] shadow-md dark:shadow-soft-dark flex-1 flex flex-col overflow-hidden border border-gray-100 dark:border-gray-800">
+                        <div class="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#1e293b] relative z-20">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-primary-50 dark:bg-primary-900/10 flex items-center justify-center border border-primary-100 dark:border-primary-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-primary-600">
+                                        <path fill-rule="evenodd" d="M4.804 21.644A6.707 6.707 0 006 21.75a6.721 6.721 0 003.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 01-.814 1.686.75.75 0 00.44 1.223zM8.25 10.875a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25zM10.875 12a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0zm4.875-1.125a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 data-i18n="chat_title" class="font-black text-gray-900 dark:text-gray-100 text-lg md:text-xl tracking-tight">Chat Room Kurama</h2>
+                                    <div class="flex items-center gap-2">
+                                        <span class="flex h-2 w-2 relative">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                        <p data-i18n="chat_subtitle" class="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Public Interaction</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="user-status-area">
+                            </div>
+                        </div>
+                        
+                        <div id="messages-container" class="flex-1 overflow-y-auto p-3 md:p-8 space-y-6 md:space-y-8 scroll-smooth bg-gray-50/20 dark:bg-slate-900/10">
+                            <div class="flex justify-center my-20" id="chat-loader">
+                                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 md:p-8 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1e293b]" id="chat-input-area">
+                        </div>
+                    </div>
+                </div>
+                
+                <footer class="mt-20 border-t border-gray-200 dark:border-gray-800">
+    <div class="max-w-7xl mx-auto pt-8 pb-10">
+        <!-- Copyright & Running Time -->
+        <div class="text-center">
+            <p data-i18n="copyright" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                © 2026 <span class="font-semibold text-gray-700 dark:text-gray-300">Kurama</span>. All rights reserved.
+            </p>
+            <p data-i18n="built_with" class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                Built with <span class="inline-block animate-heartbeat text-red-500">❤️</span> in Kudus, ID
+            </p>
+            
+            <!-- Running Time Counter -->
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700">
+                <svg class="w-4 h-4 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="text-xs font-mono text-gray-600 dark:text-gray-300">
+                    <span data-i18n="running_time_label">Waktu berjalan: </span><span id="running-time-chat" class="font-bold text-primary-600 dark:text-primary-400">0d 0h 0m 0s</span>
+                </span>
+            </div>
+        </div>
+    </div>
+</footer>
+
+            </div>
+        </main>
     </div><!-- end page-chat -->
 
     <!-- PROJECTS PAGE SECTION -->
@@ -1608,16 +1513,6 @@
         }
         // Scroll to top
         window.scrollTo(0, 0);
-        // Hide sidebar & mobile menu button on chat page
-        var sideNav = document.querySelector('nav.md\\:fixed');
-        var mobileHeader = document.getElementById('mobile-header');
-        if (page === 'chat') {
-            if (sideNav) sideNav.style.display = 'none';
-            if (mobileHeader) mobileHeader.style.display = 'none';
-        } else {
-            if (sideNav) sideNav.style.removeProperty('display');
-            if (mobileHeader) mobileHeader.style.removeProperty('display');
-        }
         // Update active nav state
         document.querySelectorAll('.nav-item-home, .nav-item-chat, .nav-item-contact').forEach(function(el) {
             el.classList.remove('text-primary-600', 'bg-primary-50', 'dark:bg-primary-900/10');
@@ -1646,754 +1541,392 @@
 
     </script>
 
-    <!-- Chat + Voice scripts -->
+    <!-- Chat-specific scripts (Firebase Realtime DB, no backend needed) -->
+    <!-- 
+        SETUP FIREBASE:
+        1. Buka https://console.firebase.google.com → Buat project baru
+        2. Buka Project Settings → General → Your apps → Add app (Web)
+        3. Copy firebaseConfig dan tempel di bawah
+        4. Di Firebase Console: Build → Realtime Database → Create database → Start in test mode
+    -->
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-    import {
-        getDatabase, ref, push, set, onValue, remove,
-        serverTimestamp, query, limitToLast, orderByChild, onDisconnect
-    } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
-    import {
-        getAuth, GoogleAuthProvider, GithubAuthProvider,
-        signInWithPopup, signOut, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
+    import { getDatabase, ref, push, onValue, remove, serverTimestamp, query, limitToLast, orderByChild }
+        from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
+    import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+        from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
 
-    /* ── Firebase config ────────────────────────────────── */
-    const app  = initializeApp({
-        apiKey:            "AIzaSyAQn-HOc2ut9_Dcw0LiPhvUMfzrjaLhj2Q",
-        authDomain:        "chatroom-e9b3f.firebaseapp.com",
-        databaseURL:       "https://chatroom-e9b3f-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId:         "chatroom-e9b3f",
-        storageBucket:     "chatroom-e9b3f.firebasestorage.app",
+    // =============================================
+    // 🔥 FIREBASE CONFIG
+    // =============================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyAQn-HOc2ut9_Dcw0LiPhvUMfzrjaLhj2Q",
+        authDomain: "chatroom-e9b3f.firebaseapp.com",
+        databaseURL: "https://chatroom-e9b3f-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "chatroom-e9b3f",
+        storageBucket: "chatroom-e9b3f.firebasestorage.app",
         messagingSenderId: "125686404483",
-        appId:             "1:125686404483:web:46e49688dfbd1b69d2d2b6",
-    });
-    const db   = getDatabase(app);
-    const auth = getAuth(app);
-    let me = null;    // current Firebase user
-
-    /* ── Voice call state ───────────────────────────────── */
-    const V = {
-        active:false, muted:false,
-        stream:null, peers:{}, members:{}, subs:[],
-        actx:null, localSi:null,
+        appId: "1:125686404483:web:46e49688dfbd1b69d2d2b6",
+        measurementId: "G-72S0ZXEX7Y"
     };
-    const ICE = { iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}] };
+    // =============================================
 
-    /* ══════════════════════════════════════════════════════
-       UTILS
-    ══════════════════════════════════════════════════════ */
-    const $ = id => document.getElementById(id);
-    const esc = s => { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; };
-    const avUrl = (photo, name) => {
-        if (photo) return photo;
-        const pal=['0D9489','6366f1','f59e0b','ef4444','10b981','3b82f6','8b5cf6','ec4899'];
-        const ch=(name||'A').charCodeAt(0);
-        return `https://ui-avatars.com/api/?name=${encodeURIComponent((name||'A')[0].toUpperCase())}&background=${pal[ch%pal.length]}&color=fff&size=80&bold=true`;
-    };
-    const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jakarta'}) : '';
-    const fmtDate = ts => {
-        if (!ts) return '';
-        const d=new Date(ts), t=new Date(), y=new Date(t);
-        y.setDate(t.getDate()-1);
-        if (d.toDateString()===t.toDateString()) return 'Hari ini';
-        if (d.toDateString()===y.toDateString()) return 'Kemarin';
-        return d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
-    };
+    let db, auth, currentUser = null;
+    let chatConfigOk = false;
+    let readOnlyUnsubscribe = null;
 
-    /* ══════════════════════════════════════════════════════
-       AUTH
-    ══════════════════════════════════════════════════════ */
-    onAuthStateChanged(auth, user => {
-        me = user;
-        window._chatIsAdmin = !!(user && (user.displayName||'').toLowerCase()==='kayzen796');
-        buildChatUI();
-        buildVoiceUI();
-    });
+    chatConfigOk = !firebaseConfig.apiKey.includes("GANTI");
 
-    /* ══════════════════════════════════════════════════════
-       CHAT UI
-    ══════════════════════════════════════════════════════ */
-    function buildChatUI() {
-        renderUserChip();
-        renderInputBar();
-        loadMessages();
+    if (chatConfigOk) {
+        const app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+        auth = getAuth(app);
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user || null;
+            setupChatUI();
+        });
+    } else {
+        showSetupGuide();
     }
 
-    /* ── User chip (top-right) ──────────────────────────── */
-    function renderUserChip() {
-        const area = $('user-status-area');
-        if (!area) return;
-        if (!me) { area.innerHTML=''; return; }
-
-        const pids = me.providerData?.map(p=>p.providerId)||[];
-        let picon = '';
-        if (pids.includes('google.com')) {
-            picon=`<svg viewBox="0 0 48 48" class="w-3 h-3 flex-shrink-0">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>`;
-        } else if (pids.includes('github.com')) {
-            picon=`<svg viewBox="0 0 24 24" class="w-3 h-3 flex-shrink-0 fill-current text-gray-600 dark:text-gray-300">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-            </svg>`;
-        }
-
-        const name = esc(me.displayName||'Anonim');
-        const photo = avUrl(me.photoURL, me.displayName);
-        area.innerHTML = `
-            <div class="flex items-center gap-1.5
-                        bg-gray-100 dark:bg-slate-800
-                        border border-gray-200/60 dark:border-slate-700
-                        pl-0.5 pr-2 py-0.5 rounded-full">
-                <img src="${photo}" alt="${name}"
-                     class="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                     onerror="this.src='${avUrl(null,me.displayName)}'">
-                <span class="text-xs font-semibold text-gray-700 dark:text-gray-200
-                             max-w-[72px] truncate hidden sm:block">${name}</span>
-                ${picon}
-                <button onclick="window.chatLogout()"
-                        class="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full
-                               text-gray-400 hover:text-rose-500
-                               hover:bg-rose-50 dark:hover:bg-rose-900/20
-                               transition-all">
-                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>`;
-    }
-
-    /* ── Input bar ───────────────────────────────────────── */
-    function renderInputBar() {
-        const area = $('chat-input-area');
-        if (!area) return;
-
-        if (!me) {
-            area.innerHTML = `
-                <div class="flex flex-col items-center gap-2.5 py-2">
-                    <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                        👀 Mode baca — login untuk ikut chat
-                    </p>
-                    <div class="flex gap-2">
-                        <button id="btn-login-google" onclick="window.chatLoginGoogle()"
-                                class="flex items-center gap-2 px-4 py-2.5 rounded-2xl
-                                       border border-gray-200 dark:border-gray-700
-                                       bg-white dark:bg-slate-900
-                                       text-gray-700 dark:text-gray-200
-                                       text-xs font-semibold
-                                       hover:bg-gray-50 dark:hover:bg-slate-800
-                                       transition-all active:scale-95 shadow-sm">
-                            <svg viewBox="0 0 48 48" class="w-4 h-4 flex-shrink-0">
-                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                            </svg>
-                            Google
-                        </button>
-                        <button id="btn-login-github" onclick="window.chatLoginGithub()"
-                                class="flex items-center gap-2 px-4 py-2.5 rounded-2xl
-                                       border border-gray-200 dark:border-gray-700
-                                       bg-white dark:bg-slate-900
-                                       text-gray-700 dark:text-gray-200
-                                       text-xs font-semibold
-                                       hover:bg-gray-50 dark:hover:bg-slate-800
-                                       transition-all active:scale-95 shadow-sm">
-                            <svg viewBox="0 0 24 24" class="w-4 h-4 flex-shrink-0 fill-current">
-                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-                            </svg>
-                            GitHub
-                        </button>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        const firstName = esc((me.displayName||'kamu').split(' ')[0]);
-        const photo = avUrl(me.photoURL, me.displayName);
-        area.innerHTML = `
-            <div class="flex items-end gap-2">
-                <!-- Avatar — hidden on very small screens -->
-                <img src="${photo}" alt=""
-                     class="hidden sm:block w-8 h-8 rounded-full object-cover flex-shrink-0 mb-0.5 shadow-sm"
-                     onerror="this.src='${avUrl(null,me.displayName)}'">
-
-                <!-- Input wrapper -->
-                <div class="flex-1 flex items-end gap-2
-                            bg-gray-100 dark:bg-slate-800
-                            rounded-2xl px-3.5 py-2.5
-                            border border-gray-200/70 dark:border-slate-700/60
-                            focus-within:border-primary-300 dark:focus-within:border-primary-700
-                            focus-within:ring-2 focus-within:ring-primary-300/20
-                            transition-all">
-                    <textarea id="message-input"
-                              rows="1" maxlength="500"
-                              placeholder="Tulis ke ${firstName}…"
-                              class="flex-1 bg-transparent text-sm text-gray-800 dark:text-gray-100
-                                     placeholder:text-gray-400 dark:placeholder:text-gray-500
-                                     outline-none resize-none overflow-hidden
-                                     max-h-28 leading-relaxed font-medium"></textarea>
-                    <!-- Send -->
-                    <button onclick="window.chatSend()"
-                            class="flex-shrink-0 w-8 h-8 rounded-xl
-                                   bg-primary-600 hover:bg-primary-700
-                                   text-white shadow-sm
-                                   flex items-center justify-center
-                                   transition-all active:scale-90 mb-0.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                        </svg>
-                    </button>
+    function showSetupGuide() {
+        const loader = document.getElementById('chat-loader');
+        const inputArea = document.getElementById('chat-input-area');
+        if (loader) loader.innerHTML = `
+            <div class="flex flex-col items-center gap-4 py-10 text-center px-4">
+                <div class="text-4xl">🔥</div>
+                <h3 class="font-bold text-gray-700 dark:text-gray-200 text-lg">Setup Firebase Dulu!</h3>
+                <div class="bg-gray-50 dark:bg-slate-800 rounded-2xl p-4 text-left text-xs font-mono text-gray-600 dark:text-gray-300 space-y-1 max-w-sm w-full border border-gray-200 dark:border-gray-700">
+                    <p class="font-bold text-primary-600 mb-2">Cara setup (5 menit):</p>
+                    <p>1. Buka <a href="https://console.firebase.google.com" target="_blank" class="text-primary-500 underline">console.firebase.google.com</a></p>
+                    <p>2. Buat project baru → Add Web App</p>
+                    <p>3. Copy firebaseConfig ke kode HTML</p>
+                    <p>4. Build → Realtime Database → Create database → <b>test mode</b></p>
+                    <p>5. Authentication → Sign-in method → Google & GitHub → Enable</p>
                 </div>
-            </div>`;
-
-        const ta = $('message-input');
-        if (ta) {
-            ta.addEventListener('input', function(){
-                this.style.height='auto';
-                this.style.height=Math.min(this.scrollHeight,112)+'px';
-            });
-            ta.addEventListener('keydown', e=>{
-                if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); window.chatSend(); }
-            });
-            ta.focus();
-        }
-    }
-
-    /* ── Messages ─────────────────────────────────────────── */
-    let _prevUid = null, _prevDate = null;
-
-    function loadMessages() {
-        const c = $('messages-container');
-        onValue(
-            query(ref(db,'chat_messages'), orderByChild('ts'), limitToLast(80)),
-            snap => {
-                const loader = $('chat-loader');
-                if (loader) loader.remove();
-                if (!c) return;
-
-                const atBottom = c.scrollHeight - c.scrollTop <= c.clientHeight + 120;
-                const data = snap.val();
-
-                if (!data) {
-                    c.innerHTML = `
-                        <div class="h-full flex flex-col items-center justify-center gap-3
-                                    text-gray-300 dark:text-gray-600 select-none pointer-events-none">
-                            <div class="w-16 h-16 rounded-3xl bg-gray-100 dark:bg-slate-800
-                                        flex items-center justify-center">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                                </svg>
-                            </div>
-                            <p class="text-sm font-semibold">Belum ada pesan</p>
-                            <p class="text-xs opacity-70">Jadilah yang pertama menyapa! 👋</p>
-                        </div>`;
-                    return;
-                }
-
-                _prevUid=null; _prevDate=null;
-                c.innerHTML='';
-                Object.entries(data)
-                      .map(([key,val])=>({key,...val}))
-                      .forEach(msg => renderMessage(msg, c));
-                if (atBottom) requestAnimationFrame(()=>{ c.scrollTop=c.scrollHeight; });
-            }
-        );
-    }
-
-    function renderMessage(msg, c) {
-        const myUid   = me?.uid;
-        const isMe    = !!(myUid && msg.uid===myUid);
-        const isOwner = (msg.name||'').toLowerCase().includes('kurama');
-        const isAdmin = window._chatIsAdmin;
-        const grouped = msg.uid===_prevUid;
-
-        /* Date separator */
-        const msgDate = fmtDate(msg.ts);
-        if (msgDate !== _prevDate) {
-            _prevDate=msgDate; _prevUid=null;
-            c.insertAdjacentHTML('beforeend',`
-                <div class="flex items-center gap-3 my-5 select-none">
-                    <div class="flex-1 h-px bg-gray-200/70 dark:bg-gray-700/50"></div>
-                    <span class="text-[10px] font-semibold text-gray-400 dark:text-gray-500
-                                 px-3 py-1 bg-gray-100 dark:bg-slate-800 rounded-full">${msgDate}</span>
-                    <div class="flex-1 h-px bg-gray-200/70 dark:bg-gray-700/50"></div>
-                </div>`);
-        }
-
-        const photo   = avUrl(msg.photoURL||null, msg.name);
-        const fallback = avUrl(null, msg.name);
-        const ts      = fmtTime(msg.ts);
-        const gap     = grouped ? 'mt-0.5' : 'mt-3';
-
-        /* Delete button (admin only, hover) */
-        const del = isAdmin
-            ? `<button onclick="window.chatDelete('${msg.key}')"
-                   class="opacity-0 group-hover:opacity-100 flex-shrink-0
-                          w-5 h-5 flex items-center justify-center rounded-md
-                          text-gray-300 dark:text-gray-600
-                          hover:text-rose-500 dark:hover:text-rose-400
-                          hover:bg-rose-50 dark:hover:bg-rose-900/20
-                          transition-all" title="Hapus">
-                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-                   </svg>
-               </button>` : '';
-
-        /* Owner badge */
-        const ownerBadge = isOwner
-            ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5
-                            bg-indigo-600 text-white text-[8px] font-black
-                            rounded-full uppercase tracking-tight flex-shrink-0">
-                   <svg viewBox="0 0 20 20" fill="currentColor" class="w-2 h-2">
-                       <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4.13-5.68Z" clip-rule="evenodd"/>
-                   </svg>Owner
-               </span>` : '';
-
-        if (isMe) {
-            /* ── My message: right-aligned teal bubble ── */
-            c.insertAdjacentHTML('beforeend', `
-                <div class="flex flex-col items-end group ${gap}">
-                    ${!grouped ? `
-                        <div class="flex items-center gap-1.5 mb-1 mr-0.5">
-                            ${del}
-                            <span class="text-[10px] text-gray-400 dark:text-gray-500">${ts}</span>
-                        </div>` : `
-                        <div class="flex justify-end mr-0.5 mb-0.5">${del}</div>`}
-                    <div class="max-w-[80%] sm:max-w-[70%] md:max-w-[60%] lg:max-w-[55%]">
-                        <div class="bubble-me bg-primary-600 text-white
-                                    px-4 py-2.5 shadow-sm
-                                    text-sm leading-relaxed break-words whitespace-pre-wrap font-medium">
-                            ${esc(msg.text||'')}
-                        </div>
-                    </div>
-                </div>`);
-        } else {
-            /* ── Others: left-aligned, avatar + bubble ── */
-            c.insertAdjacentHTML('beforeend', `
-                <div class="flex items-end gap-2 group ${gap}">
-                    <!-- Avatar column (always 32px wide for alignment) -->
-                    <div class="flex-shrink-0 w-8 self-end">
-                        ${!grouped
-                            ? `<img src="${photo}" alt=""
-                                    class="w-8 h-8 rounded-full object-cover shadow-sm
-                                           border-2 border-white dark:border-slate-800"
-                                    onerror="this.src='${fallback}'">`
-                            : ''}
-                    </div>
-                    <!-- Bubble column -->
-                    <div class="flex-1 min-w-0 max-w-[80%] sm:max-w-[70%] md:max-w-[60%] lg:max-w-[55%]">
-                        ${!grouped ? `
-                            <div class="flex items-center gap-1.5 mb-1 ml-0.5">
-                                <span class="text-[11px] font-bold text-gray-800 dark:text-gray-200">
-                                    ${esc(msg.name||'Anonim')}
-                                </span>
-                                ${ownerBadge}
-                                <span class="text-[10px] text-gray-400 dark:text-gray-500">${ts}</span>
-                                ${del}
-                            </div>` : `
-                            ${isAdmin ? `<div class="flex ml-0.5 mb-0.5">${del}</div>` : ''}`}
-                        <div class="bubble-other
-                                    bg-white dark:bg-slate-800
-                                    border border-gray-100 dark:border-slate-700/60
-                                    px-4 py-2.5 shadow-sm
-                                    text-sm text-gray-800 dark:text-gray-100
-                                    leading-relaxed break-words whitespace-pre-wrap font-medium">
-                            ${esc(msg.text||'')}
-                        </div>
-                    </div>
-                </div>`);
-        }
-        _prevUid = msg.uid;
-    }
-
-    /* ══════════════════════════════════════════════════════
-       VOICE UI
-    ══════════════════════════════════════════════════════ */
-    function buildVoiceUI() {
-        const html = voiceHtml();
-        const sidebar = $('voice-sidebar');
-        const sheetBody = $('voice-sheet-body');
-        if (sidebar) sidebar.innerHTML = html;
-        if (sheetBody) sheetBody.innerHTML = html;
-        /* Live dot on voice button */
-        const dot = $('voice-dot');
-        if (dot) dot.classList.toggle('hidden', !V.active);
-    }
-
-    function voiceHtml() {
-        const loggedIn = !!me;
-        const inCall   = V.active;
-        const myUid    = me?.uid;
-        const count    = Object.keys(V.members).length;
-
-        /* Member cards */
-        const cards = Object.entries(V.members).map(([uid,m]) => {
-            const img=m.photo||avUrl(null,m.name), fb=avUrl(null,m.name), isMe=uid===myUid;
-            return `
-                <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl
-                            hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
-                     data-voice-uid="${uid}">
-                    <!-- Avatar with speaking ring -->
-                    <div class="relative flex-shrink-0">
-                        <div class="voice-ring w-9 h-9 rounded-full p-[2px] transition-all duration-150">
-                            <img src="${img}" class="w-full h-full rounded-full object-cover"
-                                 onerror="this.src='${fb}'">
-                        </div>
-                        ${m.muted ? `
-                        <span class="absolute -bottom-0.5 -right-0.5
-                                     w-4 h-4 rounded-full bg-rose-500 shadow
-                                     border-[1.5px] border-white dark:border-slate-900
-                                     flex items-center justify-center">
-                            <svg class="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                                <line x1="4" y1="4" x2="20" y2="20" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                            </svg>
-                        </span>` : ''}
-                    </div>
-                    <!-- Name -->
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
-                            ${esc(m.name||'Anonim')}
-                        </p>
-                        ${isMe ? '<p class="text-[9px] text-primary-400 font-medium leading-none mt-0.5">kamu</p>' : ''}
-                    </div>
-                    <!-- Mic active indicator -->
-                    ${!m.muted ? '<div class="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse"></div>' : ''}
-                </div>`;
-        }).join('');
-
-        /* Panel header */
-        const header = `
-            <div class="flex items-center gap-2.5 px-4 pt-4 pb-3
-                        border-b border-gray-100 dark:border-gray-800">
-                <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0
-                            ${inCall?'bg-emerald-100 dark:bg-emerald-900/30':'bg-violet-100 dark:bg-violet-900/30'}">
-                    <svg class="w-3.5 h-3.5 ${inCall?'text-emerald-600 dark:text-emerald-400':'text-violet-600 dark:text-violet-400'}"
-                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                    </svg>
-                </div>
-                <span class="text-sm font-bold text-gray-900 dark:text-white flex-1">Voice Channel</span>
-                ${inCall ? `<span class="flex items-center gap-1 text-[9px] font-black uppercase tracking-wide
-                                        text-emerald-600 dark:text-emerald-400
-                                        bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
-                    <span class="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>Live</span>` : ''}
-            </div>`;
-
-        if (!loggedIn) {
-            return `${header}
-                <div class="flex flex-col items-center py-10 gap-3
-                            text-gray-300 dark:text-gray-600 px-4">
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                    </svg>
-                    <p class="text-xs font-medium text-center">Login terlebih dahulu<br>untuk voice channel</p>
-                </div>`;
-        }
-
-        if (!inCall) {
-            const membersSection = count > 0
-                ? `<div class="px-3 pt-3 pb-2">
-                    <p class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 mb-1">
-                        ${count} dalam panggilan
-                    </p>
-                    ${cards}
-                   </div>`
-                : `<div class="flex flex-col items-center py-8 gap-3
-                              text-gray-300 dark:text-gray-600">
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                    </svg>
-                    <p class="text-xs font-medium">Channel kosong</p>
-                   </div>`;
-
-            return `${header}${membersSection}
-                <div class="px-4 pt-2 pb-4">
-                    <button onclick="window.voiceJoin()"
-                            class="w-full py-3 rounded-2xl font-bold text-sm
-                                   bg-emerald-500 hover:bg-emerald-600 active:scale-95
-                                   text-white shadow-sm transition-all
-                                   flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                        </svg>
-                        Gabung Voice
-                    </button>
-                </div>`;
-        }
-
-        /* In call */
-        return `${header}
-            <div class="px-3 pt-3 pb-2 flex-1 overflow-y-auto">
-                <p class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 mb-1">
-                    ${count} peserta
-                </p>
-                ${cards}
+                <p class="text-xs text-gray-400">Chat room akan langsung berfungsi setelah config diisi ✅</p>
             </div>
-            <div class="flex gap-2 px-4 pb-4 pt-2 flex-shrink-0">
-                <button onclick="window.voiceToggleMute()"
-                        class="flex-1 py-2.5 flex items-center justify-center gap-1.5 rounded-2xl
-                               font-semibold text-xs transition-all active:scale-95
-                               ${V.muted
-                                   ? 'bg-rose-500 hover:bg-rose-600 text-white shadow'
-                                   : 'bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300'}">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                        ${V.muted ? '<line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>' : ''}
-                    </svg>
-                    ${V.muted ? 'Unmute' : 'Mute'}
-                </button>
-                <button onclick="window.voiceLeave()"
-                        class="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl
-                               bg-rose-500 hover:bg-rose-600 active:scale-95
-                               text-white text-xs font-semibold shadow transition-all">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"/>
-                    </svg>
-                    Keluar
-                </button>
-            </div>`;
+        `;
+        if (inputArea) inputArea.innerHTML = '';
     }
 
-    function setSpeakRing(uid, on) {
-        document.querySelectorAll(`[data-voice-uid="${uid}"] .voice-ring`).forEach(r=>{
-            if(on) r.classList.add('ring-speaking');
-            else   r.classList.remove('ring-speaking');
-        });
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    /* ── Voice bottom-sheet toggle ────────────────────────── */
-    window.toggleVoice = function() {
-        const sheet = $('voice-sheet');
-        const overlay = $('voice-overlay');
-        if (!sheet) return;
-        const isOpen = sheet.classList.contains('open');
-        if (isOpen) {
-            sheet.classList.remove('open');
-            if(overlay) overlay.classList.add('hidden');
+    function getAvatar(photoURL, name) {
+        if (photoURL) return photoURL;
+        const colors = ['0D9489','6366f1','f59e0b','ef4444','10b981','3b82f6','8b5cf6','ec4899'];
+        const idx = name ? name.charCodeAt(0) % colors.length : 0;
+        const initial = name ? name[0].toUpperCase() : '?';
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=${colors[idx]}&color=fff&size=80&bold=true`;
+    }
+
+    function formatTime(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleString('id-ID', {
+            day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit',
+            timeZone:'Asia/Jakarta'
+        }) + ' WIB';
+    }
+
+    // ── Login buttons UI ──────────────────────────────────
+    function renderLoginButtons(inputArea) {
+        if (!inputArea) return;
+        inputArea.innerHTML = `
+            <div class="flex flex-col items-center gap-3 py-5">
+                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">👀 Kamu sedang membaca — login untuk ikut chat</p>
+                <div class="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                    <!-- Google -->
+                    <button id="btn-login-google" onclick="window.chatLoginGoogle()"
+                        class="flex-1 flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-all active:scale-95 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-5 h-5 flex-shrink-0">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                        Login Google
+                    </button>
+                    <!-- GitHub -->
+                    <button id="btn-login-github" onclick="window.chatLoginGithub()"
+                        class="flex-1 flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-all active:scale-95 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 flex-shrink-0 fill-current">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
+                        Login GitHub
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ── Main UI router ────────────────────────────────────
+    function setupChatUI() {
+        const inputArea = document.getElementById('chat-input-area');
+
+        if (!currentUser) {
+            // Belum login → read-only + tombol login
+            renderLoginButtons(inputArea);
+            showMessagesReadOnly();
         } else {
-            sheet.classList.add('open');
-            if(overlay) overlay.classList.remove('hidden');
+            // Sudah login → full chat
+            showChatFull(currentUser);
         }
-    };
-    window.closeVoice = function() {
-        $('voice-sheet')?.classList.remove('open');
-        $('voice-overlay')?.classList.add('hidden');
-    };
-    /* Alias for old code */
-    window.toggleVoicePanel = window.toggleVoice;
-    window.toggleVoiceMobile = window.toggleVoice;
-
-    /* ══════════════════════════════════════════════════════
-       WEBRTC VOICE CALL
-    ══════════════════════════════════════════════════════ */
-    window.voiceJoin = async function() {
-        if (!me || V.active) return;
-        try { V.stream = await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }
-        catch(e) { alert('Tidak bisa akses mikrofon:\n'+(e.message||e)); return; }
-
-        V.active=true; V.muted=false;
-        buildVoiceUI();
-
-        const myUid=me.uid, myName=me.displayName||'Anonim', myPhoto=me.photoURL||null;
-        const mRef=ref(db,`voice_v1/members/${myUid}`);
-        await set(mRef,{name:myName,photo:myPhoto,muted:false});
-        ['members','offers','answers','ice'].forEach(k=>
-            onDisconnect(ref(db,`voice_v1/${k}/${myUid}`)).remove()
-        );
-
-        const u1=onValue(ref(db,'voice_v1/members'),snap=>{
-            const data=snap.val()||{}, prev={...V.members};
-            V.members=data;
-            for(const[uid] of Object.entries(data))
-                if(uid!==myUid && !prev[uid] && !V.peers[uid]) createOffer(uid);
-            for(const uid of Object.keys(prev))
-                if(!data[uid]) closePeer(uid);
-            buildVoiceUI();
-        });
-        const u2=onValue(ref(db,`voice_v1/offers/${myUid}`),snap=>{
-            const d=snap.val(); if(!d) return;
-            for(const[from,sdp] of Object.entries(d)) if(!V.peers[from]) handleOffer(from,sdp);
-        });
-        const u3=onValue(ref(db,`voice_v1/answers/${myUid}`),snap=>{
-            const d=snap.val(); if(!d) return;
-            for(const[from,sdp] of Object.entries(d)){
-                const p=V.peers[from];
-                if(p&&!p.answered){p.answered=true;p.pc.setRemoteDescription({type:'answer',sdp}).catch(console.error);}
-            }
-        });
-        const u4=onValue(ref(db,`voice_v1/ice/${myUid}`),snap=>{
-            const d=snap.val(); if(!d) return;
-            for(const[from,cands] of Object.entries(d)){
-                const p=V.peers[from];
-                if(p) for(const c of Object.values(cands))
-                    p.pc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{});
-            }
-        });
-        V.subs.push(u1,u2,u3,u4);
-        setupAnalyser(myUid, V.stream, false);
-    };
-
-    async function createOffer(peerUid) {
-        if(V.peers[peerUid]) return;
-        const pc=buildPC(peerUid); V.peers[peerUid]={pc,answered:false};
-        V.stream.getTracks().forEach(t=>pc.addTrack(t,V.stream));
-        const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-        await set(ref(db,`voice_v1/offers/${peerUid}/${me.uid}`),offer.sdp);
     }
-    async function handleOffer(fromUid,sdp) {
-        if(V.peers[fromUid]) return;
-        const pc=buildPC(fromUid); V.peers[fromUid]={pc,answered:true};
-        V.stream.getTracks().forEach(t=>pc.addTrack(t,V.stream));
-        await pc.setRemoteDescription({type:'offer',sdp});
-        const ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
-        await set(ref(db,`voice_v1/answers/${fromUid}/${me.uid}`),ans.sdp);
-    }
-    function buildPC(peerUid) {
-        const myUid=me.uid, pc=new RTCPeerConnection(ICE);
-        pc.onicecandidate=e=>{
-            if(e.candidate)
-                push(ref(db,`voice_v1/ice/${peerUid}/${myUid}`),{
-                    candidate:e.candidate.candidate,
-                    sdpMid:e.candidate.sdpMid,
-                    sdpMLineIndex:e.candidate.sdpMLineIndex
-                }).catch(()=>{});
-        };
-        pc.ontrack=e=>{
-            const s=e.streams[0];
-            let el=document.getElementById(`va-${peerUid}`);
-            if(!el){
-                el=document.createElement('audio');
-                el.id=`va-${peerUid}`; el.autoplay=true; el.style.display='none';
-                document.body.appendChild(el);
+
+    // ── Read-only message listener ────────────────────────
+    function showMessagesReadOnly() {
+        const loader = document.getElementById('chat-loader');
+        const container = document.getElementById('messages-container');
+
+        const messagesRef = query(ref(db, 'chat_messages'), orderByChild('ts'), limitToLast(80));
+        readOnlyUnsubscribe = onValue(messagesRef, (snapshot) => {
+            if (loader) loader.remove();
+            const data = snapshot.val();
+            if (!container) return;
+
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 120;
+
+            if (!data) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400 gap-3 opacity-50 py-16">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                        </svg>
+                        <p class="text-sm font-bold">Belum ada pesan</p>
+                        <p class="text-xs">Login dulu untuk menyapa! 👋</p>
+                    </div>
+                `;
+                return;
             }
-            el.srcObject=s;
-            setupAnalyser(peerUid,s,true);
-        };
-        pc.onconnectionstatechange=()=>{
-            if(['failed','disconnected','closed'].includes(pc.connectionState)) closePeer(peerUid);
-        };
-        return pc;
+
+            const messages = Object.entries(data).map(([key, val]) => ({key, ...val}));
+            container.innerHTML = '';
+            messages.forEach(msg => renderMsg(msg, null));
+            if (wasAtBottom) container.scrollTop = container.scrollHeight;
+        });
     }
-    function closePeer(uid) {
-        if(V.peers[uid]){
-            V.peers[uid].pc.close();
-            if(V.peers[uid].si) clearInterval(V.peers[uid].si);
-            delete V.peers[uid];
+
+    // ── Full chat (logged in) ─────────────────────────────
+    function showChatFull(user) {
+        const displayName = user.displayName || 'Anonim';
+        const photoURL = user.photoURL || null;
+        const uid = user.uid;
+
+        const userStatus = document.getElementById('user-status-area');
+        const inputArea = document.getElementById('chat-input-area');
+        const container = document.getElementById('messages-container');
+        const loader = document.getElementById('chat-loader');
+        const isOwner = displayName.toLowerCase().includes('kurama');
+
+        // Determine provider badge
+        const providerIds = user.providerData ? user.providerData.map(p => p.providerId) : [];
+        const isGoogle = providerIds.includes('google.com');
+        const isGithub = providerIds.includes('github.com');
+        const providerBadge = isGoogle
+            ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 flex items-center gap-1"><svg viewBox="0 0 48 48" class="w-2.5 h-2.5"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Google</span>`
+            : isGithub
+            ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex items-center gap-1"><svg viewBox="0 0 24 24" class="w-2.5 h-2.5 fill-current"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</span>`
+            : '';
+
+        // User status bar
+        if (userStatus) {
+            userStatus.innerHTML = `
+                <div class="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-2xl border border-gray-100 dark:border-gray-700">
+                    <img src="${getAvatar(photoURL, displayName)}" class="w-8 h-8 rounded-full shadow-sm object-cover" onerror="this.src='${getAvatar(null, displayName)}'">
+                    <div class="hidden sm:flex flex-col leading-none">
+                        <span class="text-xs font-bold text-gray-700 dark:text-gray-200">${escapeHtml(displayName)}</span>
+                    </div>
+                    ${providerBadge}
+                    <button onclick="window.chatLogout()" class="px-2 py-1 text-[10px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors ml-1">Keluar</button>
+                </div>
+            `;
         }
-        document.getElementById(`va-${uid}`)?.remove();
-        setSpeakRing(uid,false);
+
+        // Input area
+        if (inputArea) {
+            inputArea.innerHTML = `
+                <div class="flex gap-3 items-end">
+                    <img src="${getAvatar(photoURL, displayName)}" class="w-9 h-9 rounded-full flex-shrink-0 mb-1 hidden sm:block shadow-sm object-cover" onerror="this.src='${getAvatar(null, displayName)}'">
+                    <div class="flex-1 relative">
+                        <textarea id="message-input" rows="1" maxlength="500"
+                            placeholder="Tulis sesuatu, ${escapeHtml(displayName.split(' ')[0])}..."
+                            class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-3xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all resize-none overflow-hidden max-h-32 pr-20 font-medium placeholder:text-gray-400 shadow-inner"></textarea>
+                        <button onclick="window.chatSend()" 
+                            class="absolute right-2 bottom-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-2xl transition-all active:scale-95 shadow-md font-bold text-xs h-[40px]">
+                            Kirim
+                        </button>
+                    </div>
+                </div>
+            `;
+            const ta = document.getElementById('message-input');
+            if (ta) {
+                ta.addEventListener('input', function() { this.style.height='auto'; this.style.height=this.scrollHeight+'px'; });
+                ta.addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); window.chatSend(); }});
+                ta.focus();
+            }
+        }
+
+        // Listen to messages
+        const messagesRef = query(ref(db, 'chat_messages'), orderByChild('ts'), limitToLast(80));
+        onValue(messagesRef, (snapshot) => {
+            if (loader) loader.remove();
+            const data = snapshot.val();
+            if (!container) return;
+
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 120;
+
+            if (!data) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400 gap-3 opacity-50 py-16">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                        </svg>
+                        <p class="text-sm font-bold">Belum ada pesan</p>
+                        <p class="text-xs">Jadilah yang pertama menyapa! 👋</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const messages = Object.entries(data).map(([key, val]) => ({key, ...val}));
+            container.innerHTML = '';
+            messages.forEach(msg => renderMsg(msg, uid));
+            if (wasAtBottom) container.scrollTop = container.scrollHeight;
+        });
+
+        window._chatUid = uid;
+        window._chatDisplayName = displayName;
+        window._chatPhotoURL = photoURL;
+        window._chatDb = db;
+        window._chatIsAdmin = displayName.toLowerCase() === 'kayzen796';
     }
-    function setupAnalyser(uid,stream,isRemote) {
+
+    // ── Render single message ─────────────────────────────
+    function renderMsg(msg, myUid) {
+        const container = document.getElementById('messages-container');
+        if (!container) return;
+        const isMe = myUid && msg.uid === myUid;
+        const isOwner = (msg.name || '').toLowerCase().includes('kurama');
+        const ts = formatTime(msg.ts);
+        const avatar = getAvatar(msg.photoURL || null, msg.name);
+
+        const html = `
+            <div class="flex gap-3 md:gap-4 group" data-key="${msg.key}">
+                <div class="flex-shrink-0">
+                    <img src="${avatar}" class="w-10 h-10 md:w-11 md:h-11 rounded-full shadow-sm border-2 border-white dark:border-slate-800 object-cover" onerror="this.src='${getAvatar(null, msg.name)}'">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">${escapeHtml(msg.name || 'Anonim')}</span>
+                        ${isOwner ? `<span class="px-2 py-0.5 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase tracking-tight flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4.13-5.68Z" clip-rule="evenodd" /></svg>Owner</span>` : ''}
+                        ${msg.provider === 'google.com' ? `<span class="text-[9px] font-bold text-red-400">G</span>` : msg.provider === 'github.com' ? `<span class="text-[9px] font-bold text-gray-400">GH</span>` : ''}
+                        <span class="text-[10px] text-gray-400">${ts}</span>
+                        ${window._chatIsAdmin ? `<button onclick="window.chatDelete('${msg.key}')" class="ml-auto opacity-0 group-hover:opacity-100 text-[10px] font-bold text-rose-400 hover:text-rose-600 transition-opacity">Hapus</button>` : ''}
+                    </div>
+                    <div class="inline-block bg-white dark:bg-slate-800/60 border border-gray-100 dark:border-gray-700/50 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm hover:shadow-md transition-shadow max-w-[90%] md:max-w-[75%]">
+                        <p class="text-[13px] md:text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed break-words whitespace-pre-wrap">${escapeHtml(msg.text || '')}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    // ── OAuth login handlers ──────────────────────────────
+    async function loginWithProvider(provider, btnId) {
+        const btn = document.getElementById(btnId);
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
         try {
-            const ctx=new(window.AudioContext||window.webkitAudioContext)();
-            const an=ctx.createAnalyser(); an.fftSize=256; an.smoothingTimeConstant=0.15;
-            const src=ctx.createMediaStreamSource(stream); src.connect(an);
-            if(isRemote) src.connect(ctx.destination);
-            const buf=new Uint8Array(an.frequencyBinCount);
-            const si=setInterval(()=>{
-                an.getByteFrequencyData(buf);
-                setSpeakRing(uid, buf.reduce((a,b)=>a+b,0)/buf.length>10);
-            },120);
-            if(isRemote && V.peers[uid]) V.peers[uid].si=si;
-            else { V.actx=ctx; V.localSi=si; }
-        } catch(e){}
+            await signInWithPopup(auth, provider);
+            // onAuthStateChanged akan otomatis trigger setupChatUI()
+        } catch(e) {
+            console.error('Login failed:', e);
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+            // Tampilkan pesan error singkat
+            const inputArea = document.getElementById('chat-input-area');
+            if (inputArea) {
+                const errEl = document.createElement('p');
+                errEl.className = 'text-xs text-rose-500 text-center mt-1';
+                errEl.textContent = e.code === 'auth/popup-closed-by-user' ? 'Login dibatalkan.' : 'Login gagal, coba lagi.';
+                inputArea.appendChild(errEl);
+                setTimeout(() => errEl.remove(), 3000);
+            }
+        }
     }
 
-    window.voiceLeave = async function() {
-        if(!V.active||!me) return;
-        const myUid=me.uid;
-        V.stream?.getTracks().forEach(t=>t.stop()); V.stream=null;
-        if(V.localSi) clearInterval(V.localSi);
-        if(V.actx){V.actx.close();V.actx=null;}
-        Object.keys(V.peers).forEach(closePeer); V.peers={};
-        V.subs.forEach(u=>u()); V.subs=[];
-        try{
-            await remove(ref(db,`voice_v1/members/${myUid}`));
-            await remove(ref(db,`voice_v1/offers/${myUid}`));
-            await remove(ref(db,`voice_v1/answers/${myUid}`));
-            await remove(ref(db,`voice_v1/ice/${myUid}`));
-        }catch(e){}
-        V.active=false; V.muted=false; V.members={};
-        buildVoiceUI();
-        window.closeVoice();
+    window.chatLoginGoogle = function() {
+        loginWithProvider(new GoogleAuthProvider(), 'btn-login-google');
     };
 
-    window.voiceToggleMute = function() {
-        if(!V.stream) return;
-        V.muted=!V.muted;
-        V.stream.getAudioTracks().forEach(t=>t.enabled=!V.muted);
-        if(me) set(ref(db,`voice_v1/members/${me.uid}/muted`),V.muted).catch(()=>{});
-        buildVoiceUI();
+    window.chatLoginGithub = function() {
+        loginWithProvider(new GithubAuthProvider(), 'btn-login-github');
     };
 
-    /* Watch members even when not in call (read-only for panel display) */
-    onValue(ref(db,'voice_v1/members'),snap=>{
-        if(!V.active){ V.members=snap.val()||{}; buildVoiceUI(); }
-    });
-
-    /* ══════════════════════════════════════════════════════
-       CHAT ACTIONS
-    ══════════════════════════════════════════════════════ */
+    // ── Send message ──────────────────────────────────────
     window.chatSend = async function() {
-        const ta=$('message-input');
-        if(!ta||!me) return;
-        const text=ta.value.trim(); if(!text) return;
-        const prov=(me.providerData?.[0]?.providerId)||'unknown';
-        ta.disabled=true;
+        const inp = document.getElementById('message-input');
+        if (!inp || !currentUser || !db) return;
+        const text = inp.value.trim();
+        if (!text) return;
+
+        const providerIds = currentUser.providerData ? currentUser.providerData.map(p => p.providerId) : [];
+        const provider = providerIds[0] || 'unknown';
+
+        inp.disabled = true;
         try {
-            await push(ref(db,'chat_messages'),{
-                uid:me.uid,
-                name:me.displayName||'Anonim',
-                photoURL:me.photoURL||null,
-                provider:prov, text,
-                ts:serverTimestamp()
+            await push(ref(db, 'chat_messages'), {
+                uid: currentUser.uid,
+                name: currentUser.displayName || 'Anonim',
+                photoURL: currentUser.photoURL || null,
+                provider: provider,
+                text: text,
+                ts: serverTimestamp()
             });
-            ta.value=''; ta.style.height='auto';
-        } catch(e){console.error(e);}
-        finally{ta.disabled=false;ta.focus();}
-    };
-
-    window.chatDelete = async function(key) {
-        if(!key||!window._chatIsAdmin) return;
-        if(!confirm('Hapus pesan ini?')) return;
-        await remove(ref(db,'chat_messages/'+key)).catch(console.error);
-    };
-
-    window.chatLogout = async function() {
-        if(V.active) await window.voiceLeave();
-        await signOut(auth).catch(console.error);
-    };
-
-    async function loginWith(provider,btnId) {
-        const btn=document.getElementById(btnId);
-        if(btn){btn.disabled=true;btn.style.opacity='.6';}
-        try{ await signInWithPopup(auth,provider); }
-        catch(e){
-            if(btn){btn.disabled=false;btn.style.opacity='1';}
-            if(e.code!=='auth/popup-closed-by-user') alert('Login gagal: '+e.message);
+            inp.value = '';
+            inp.style.height = 'auto';
+        } catch(e) {
+            console.error('Send failed:', e);
+        } finally {
+            inp.disabled = false;
+            inp.focus();
         }
-    }
-    window.chatLoginGoogle = ()=>loginWith(new GoogleAuthProvider(),'btn-login-google');
-    window.chatLoginGithub = ()=>loginWith(new GithubAuthProvider(),'btn-login-github');
+    };
 
-    /* Called by showPage() when switching to chat tab */
-    window.chatInit = function(){ buildChatUI(); buildVoiceUI(); };
+    // ── Delete message (hanya milik sendiri) ─────────────
+    window.chatDelete = async function(key) {
+        if (!db || !key) return;
+        if (!currentUser || (currentUser.displayName || '').toLowerCase() !== 'kayzen796') return;
+        if (!confirm('Hapus pesan ini?')) return;
+        try {
+            await remove(ref(db, 'chat_messages/' + key));
+        } catch(e) { console.error(e); }
+    };
 
-    </script>ript>
+    // ── Logout ────────────────────────────────────────────
+    window.chatLogout = async function() {
+        try {
+            await signOut(auth);
+            // onAuthStateChanged akan reset currentUser → null → setupChatUI()
+            const statusArea = document.getElementById('user-status-area');
+            if (statusArea) statusArea.innerHTML = '';
+        } catch(e) { console.error(e); }
+    };
+
+    // ── Expose for page switching ─────────────────────────
+    window.chatInit = function() {
+        if (!chatConfigOk) { showSetupGuide(); return; }
+        setupChatUI();
+    };
+    </script>
+    
+    <script>
     // Contact page - WhatsApp form handler
     document.addEventListener('DOMContentLoaded', function() {
         const contactForm = document.getElementById('contact-form');
