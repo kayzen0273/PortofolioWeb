@@ -1642,15 +1642,14 @@
     function setupChatUI() {
         // Ambil display name dari localStorage atau minta
         let displayName = localStorage.getItem('chat_display_name');
-        const userStatus = document.getElementById('user-status-area');
         const inputArea = document.getElementById('chat-input-area');
 
         if (!displayName) {
-            // Tampilkan form nama
+            // Mode read-only: tampilkan form join di input area, tapi tetap muat pesan
             if (inputArea) {
                 inputArea.innerHTML = `
                     <div class="flex flex-col items-center gap-3 py-4">
-                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Masukkan nama kamu untuk mulai chat 👋</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">👀 Kamu sedang membaca — masukkan nama untuk ikut chat</p>
                         <div class="flex gap-2 w-full max-w-sm">
                             <input id="name-input" type="text" maxlength="24" placeholder="Nama kamu..." 
                                 class="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/30 transition-all">
@@ -1664,20 +1663,48 @@
                 const inp = document.getElementById('name-input');
                 if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') window.chatJoin(); });
             }
-            const loader = document.getElementById('chat-loader');
-            if (loader) loader.innerHTML = `
-                <div class="flex flex-col items-center gap-3 py-16 text-gray-400 opacity-60">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                    </svg>
-                    <p class="text-sm font-bold">Masukkan nama untuk melihat pesan</p>
-                </div>
-            `;
+
+            // Tetap muat dan tampilkan pesan dalam mode read-only
+            showMessagesReadOnly();
             return;
         }
 
         // Sudah punya nama, tampilkan chat penuh
         showChatFull(displayName);
+    }
+
+    function showMessagesReadOnly() {
+        const loader = document.getElementById('chat-loader');
+        const container = document.getElementById('messages-container');
+
+        const messagesRef = query(ref(db, 'chat_messages'), orderByChild('ts'), limitToLast(80));
+        onValue(messagesRef, (snapshot) => {
+            if (loader) loader.remove();
+            const data = snapshot.val();
+            if (!container) return;
+
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 120;
+
+            if (!data) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400 gap-3 opacity-50 py-16">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                        </svg>
+                        <p class="text-sm font-bold">Belum ada pesan</p>
+                        <p class="text-xs">Jadilah yang pertama menyapa! 👋</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const messages = Object.entries(data).map(([key, val]) => ({key, ...val}));
+            container.innerHTML = '';
+            // Read-only: render tanpa nama sendiri (null = tidak ada pesan milik kita)
+            messages.forEach(msg => renderMsg(msg, null));
+
+            if (wasAtBottom) container.scrollTop = container.scrollHeight;
+        });
     }
 
     window.chatJoin = function() {
