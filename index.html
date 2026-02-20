@@ -288,7 +288,7 @@
 </nav>
 
         <!-- Mobile Header -->
-<header class="md:hidden fixed top-4 left-4 right-4 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-lg rounded-2xl px-4 py-3 flex items-center justify-between transition-all duration-300">
+<header id="mobile-header" class="md:hidden fixed top-4 left-4 right-4 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-lg rounded-2xl px-4 py-3 flex items-center justify-between transition-all duration-300">
     <div class="flex items-center gap-3">
         <a href="#" onclick="showPage('home'); return false;" class="w-8 h-8 rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
             <img src="assets/images/logoajie.png" alt="Kurama Logo" class="w-full h-full object-cover">
@@ -1608,6 +1608,16 @@
         }
         // Scroll to top
         window.scrollTo(0, 0);
+        // Hide sidebar & mobile menu button on chat page
+        var sideNav = document.querySelector('nav.md\\:fixed');
+        var mobileHeader = document.getElementById('mobile-header');
+        if (page === 'chat') {
+            if (sideNav) sideNav.style.display = 'none';
+            if (mobileHeader) mobileHeader.style.display = 'none';
+        } else {
+            if (sideNav) sideNav.style.removeProperty('display');
+            if (mobileHeader) mobileHeader.style.removeProperty('display');
+        }
         // Update active nav state
         document.querySelectorAll('.nav-item-home, .nav-item-chat, .nav-item-contact').forEach(function(el) {
             el.classList.remove('text-primary-600', 'bg-primary-50', 'dark:bg-primary-900/10');
