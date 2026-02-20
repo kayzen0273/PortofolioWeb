@@ -1604,7 +1604,7 @@
             // ── LOGGED IN ──
             const name  = currentUser.displayName || 'User';
             const photo = currentUser.photoURL   || `https://ui-avatars.com/api/?name=${encodeURIComponent(name[0])}&background=0D9489&color=fff&bold=true`;
-            const isOwner = name.toLowerCase().includes('kurama');
+            const isOwner = name.toLowerCase().includes('kayzen0276');
 
             // Status bar
             if (statusArea) statusArea.innerHTML = `
@@ -1838,8 +1838,8 @@
     function renderMsg(msg) {
         const container = document.getElementById('messages-container');
         if (!container) return;
-        const isOwner = (msg.name || '').toLowerCase().includes('kurama');
-        const iAmOwner = currentUser && (currentUser.displayName || '').toLowerCase().includes('kurama');
+        const isOwner = (msg.name || '').toLowerCase().includes('kayzen0276');
+        const iAmOwner = currentUser && (currentUser.displayName || '').toLowerCase().includes('kayzen0276');
         const photo   = msg.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((msg.name||'U')[0])}&background=0D9489&color=fff&bold=true`;
 
         container.insertAdjacentHTML('beforeend', `
