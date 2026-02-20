@@ -1805,6 +1805,7 @@
         window._chatDisplayName = displayName;
         window._chatPhotoURL = photoURL;
         window._chatDb = db;
+        window._chatIsAdmin = displayName.toLowerCase() === 'kay zen';
     }
 
     // ── Render single message ─────────────────────────────
@@ -1827,7 +1828,7 @@
                         ${isOwner ? `<span class="px-2 py-0.5 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase tracking-tight flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4.13-5.68Z" clip-rule="evenodd" /></svg>Owner</span>` : ''}
                         ${msg.provider === 'google.com' ? `<span class="text-[9px] font-bold text-red-400">G</span>` : msg.provider === 'github.com' ? `<span class="text-[9px] font-bold text-gray-400">GH</span>` : ''}
                         <span class="text-[10px] text-gray-400">${ts}</span>
-                        ${myUid && (msg.name || '').toLowerCase() === 'kay zen' ? `<button onclick="window.chatDelete('${msg.key}')" class="ml-auto opacity-0 group-hover:opacity-100 text-[10px] font-bold text-rose-400 hover:text-rose-600 transition-opacity">Hapus</button>` : ''}
+                        ${window._chatIsAdmin ? `<button onclick="window.chatDelete('${msg.key}')" class="ml-auto opacity-0 group-hover:opacity-100 text-[10px] font-bold text-rose-400 hover:text-rose-600 transition-opacity">Hapus</button>` : ''}
                     </div>
                     <div class="inline-block bg-white dark:bg-slate-800/60 border border-gray-100 dark:border-gray-700/50 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm hover:shadow-md transition-shadow max-w-[90%] md:max-w-[75%]">
                         <p class="text-[13px] md:text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed break-words whitespace-pre-wrap">${escapeHtml(msg.text || '')}</p>
