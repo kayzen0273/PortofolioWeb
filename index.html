@@ -1541,15 +1541,24 @@
 
     </script>
 
-    <!-- Chat-specific scripts (Firebase Auth: Google & GitHub OAuth) -->
+    <!-- Chat-specific scripts (Firebase Realtime DB, no backend needed) -->
+    <!-- 
+        SETUP FIREBASE:
+        1. Buka https://console.firebase.google.com → Buat project baru
+        2. Buka Project Settings → General → Your apps → Add app (Web)
+        3. Copy firebaseConfig dan tempel di bawah
+        4. Di Firebase Console: Build → Realtime Database → Create database → Start in test mode
+    -->
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove, serverTimestamp, query, limitToLast, orderByChild }
         from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
-    import { getAuth, onAuthStateChanged, signOut,
-             GoogleAuthProvider, GithubAuthProvider, signInWithRedirect, getRedirectResult }
+    import { getAuth, signInAnonymously, onAuthStateChanged }
         from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
 
+    // =============================================
+    // 🔥 GANTI DENGAN FIREBASE CONFIG KAMU
+    // =============================================
     const firebaseConfig = {
         apiKey: "AIzaSyAQn-HOc2ut9_Dcw0LiPhvUMfzrjaLhj2Q",
         authDomain: "chatroom-e9b3f.firebaseapp.com",
@@ -1560,320 +1569,283 @@
         appId: "1:125686404483:web:46e49688dfbd1b69d2d2b6",
         measurementId: "G-72S0ZXEX7Y"
     };
+    // =============================================
 
-    const app = initializeApp(firebaseConfig);
-    const db  = getDatabase(app);
-    const auth = getAuth(app);
+    let db, auth, currentUser = null;
+    let chatConfigOk = false;
 
-    let currentUser = null;
-    let messagesListenerActive = false;
+    // Cek apakah config sudah diisi
+    chatConfigOk = !firebaseConfig.apiKey.includes("GANTI");
 
-    // ── Auth state listener ──────────────────────────────
-    onAuthStateChanged(auth, (user) => {
-        currentUser = user;
-        if (document.getElementById('page-chat') &&
-            document.getElementById('page-chat').style.display !== 'none') {
-            renderChatUI();
-        }
-    });
+    if (chatConfigOk) {
+        const app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+        auth = getAuth(app);
 
-    // ── Helper functions ─────────────────────────────────
-    function escapeHtml(t) {
-        if (!t) return '';
-        const d = document.createElement('div');
-        d.textContent = t;
-        return d.innerHTML;
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                setupChatUI();
+            } else {
+                signInAnonymously(auth);
+            }
+        });
+    } else {
+        // Tampilkan setup guide
+        showSetupGuide();
+    }
+
+    function showSetupGuide() {
+        const loader = document.getElementById('chat-loader');
+        const inputArea = document.getElementById('chat-input-area');
+        if (loader) loader.innerHTML = `
+            <div class="flex flex-col items-center gap-4 py-10 text-center px-4">
+                <div class="text-4xl">🔥</div>
+                <h3 class="font-bold text-gray-700 dark:text-gray-200 text-lg">Setup Firebase Dulu!</h3>
+                <div class="bg-gray-50 dark:bg-slate-800 rounded-2xl p-4 text-left text-xs font-mono text-gray-600 dark:text-gray-300 space-y-1 max-w-sm w-full border border-gray-200 dark:border-gray-700">
+                    <p class="font-bold text-primary-600 mb-2">Cara setup (5 menit):</p>
+                    <p>1. Buka <a href="https://console.firebase.google.com" target="_blank" class="text-primary-500 underline">console.firebase.google.com</a></p>
+                    <p>2. Buat project baru → Add Web App</p>
+                    <p>3. Copy firebaseConfig ke kode HTML</p>
+                    <p>4. Build → Realtime Database → Create database → <b>test mode</b></p>
+                    <p>5. Authentication → Sign-in method → Anonymous → Enable</p>
+                </div>
+                <p class="text-xs text-gray-400">Chat room akan langsung berfungsi setelah config diisi ✅</p>
+            </div>
+        `;
+        if (inputArea) inputArea.innerHTML = '';
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getAvatar(name) {
+        const colors = ['0D9489','6366f1','f59e0b','ef4444','10b981','3b82f6','8b5cf6','ec4899'];
+        const idx = name ? name.charCodeAt(0) % colors.length : 0;
+        const initial = name ? name[0].toUpperCase() : '?';
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=${colors[idx]}&color=fff&size=80&bold=true`;
     }
 
     function formatTime(ts) {
         if (!ts) return '';
-        return new Date(ts).toLocaleString('id-ID', {
+        const d = new Date(ts);
+        return d.toLocaleString('id-ID', {
             day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit',
             timeZone:'Asia/Jakarta'
         }) + ' WIB';
     }
 
-    // ── Main UI renderer ─────────────────────────────────
-    function renderChatUI() {
-        const statusArea  = document.getElementById('user-status-area');
-        const inputArea   = document.getElementById('chat-input-area');
-        const loader      = document.getElementById('chat-loader');
-        const container   = document.getElementById('messages-container');
+    function setupChatUI() {
+        // Ambil display name dari localStorage atau minta
+        let displayName = localStorage.getItem('chat_display_name');
+        const userStatus = document.getElementById('user-status-area');
+        const inputArea = document.getElementById('chat-input-area');
 
-        if (currentUser) {
-            // ── LOGGED IN ──
-            const name  = currentUser.displayName || 'User';
-            const photo = currentUser.photoURL   || `https://ui-avatars.com/api/?name=${encodeURIComponent(name[0])}&background=0D9489&color=fff&bold=true`;
-            const isOwner = name.toLowerCase().includes('kayzen0276');
-
-            // Status bar
-            if (statusArea) statusArea.innerHTML = `
-                <div class="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-2xl border border-gray-100 dark:border-gray-700">
-                    <img src="${escapeHtml(photo)}" class="w-8 h-8 rounded-full shadow-sm ring-2 ring-primary-500/20" referrerpolicy="no-referrer">
-                    <div class="hidden sm:flex flex-col">
-                        <span class="text-xs font-bold text-gray-800 dark:text-gray-200 leading-none">${escapeHtml(name)}</span>
-                        <span class="text-[10px] text-gray-400 leading-none mt-0.5">${escapeHtml(currentUser.email || '')}</span>
-                    </div>
-                    <button id="chat-signout-btn" class="px-2 py-1 text-[10px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors ml-1">Sign Out</button>
-                </div>`;
-            document.getElementById('chat-signout-btn')?.addEventListener('click', () => signOut(auth));
-
-            // Input area
+        if (!displayName) {
+            // Tampilkan form nama
             if (inputArea) {
                 inputArea.innerHTML = `
-                    <div class="flex gap-3 items-end">
-                        <img src="${escapeHtml(photo)}" class="w-9 h-9 rounded-full flex-shrink-0 mb-1 hidden sm:block shadow-sm ring-2 ring-primary-500/20" referrerpolicy="no-referrer">
-                        <div class="flex-1 relative">
-                            <textarea id="message-input" rows="1" maxlength="500"
-                                placeholder="Tulis sesuatu, ${escapeHtml(name.split(' ')[0])}..."
-                                class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-3xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all resize-none overflow-hidden max-h-32 pr-24 font-medium placeholder:text-gray-400 shadow-inner"></textarea>
-                            <button id="chat-send-btn"
-                                class="absolute right-2 bottom-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-2xl transition-all active:scale-95 shadow-md font-bold text-xs h-[40px]">
-                                Kirim
+                    <div class="flex flex-col items-center gap-3 py-4">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Masukkan nama kamu untuk mulai chat 👋</p>
+                        <div class="flex gap-2 w-full max-w-sm">
+                            <input id="name-input" type="text" maxlength="24" placeholder="Nama kamu..." 
+                                class="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/30 transition-all">
+                            <button onclick="window.chatJoin()" 
+                                class="px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md">
+                                Gabung →
                             </button>
                         </div>
-                    </div>`;
-                const ta  = document.getElementById('message-input');
-                const btn = document.getElementById('chat-send-btn');
-                ta?.addEventListener('input', function() { this.style.height='auto'; this.style.height=this.scrollHeight+'px'; });
-                ta?.addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMsg(); }});
-                btn?.addEventListener('click', sendMsg);
-                ta?.focus();
+                    </div>
+                `;
+                const inp = document.getElementById('name-input');
+                if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') window.chatJoin(); });
             }
+            const loader = document.getElementById('chat-loader');
+            if (loader) loader.innerHTML = `
+                <div class="flex flex-col items-center gap-3 py-16 text-gray-400 opacity-60">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                    </svg>
+                    <p class="text-sm font-bold">Masukkan nama untuk melihat pesan</p>
+                </div>
+            `;
+            return;
+        }
 
-            // Start listening messages (only once)
-            if (!messagesListenerActive) {
-                messagesListenerActive = true;
-                const msgRef = query(ref(db,'chat_messages'), orderByChild('ts'), limitToLast(80));
-                onValue(msgRef, snap => {
-                    if (loader) loader.remove();
-                    if (!container) return;
-                    const wasBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 140;
-                    const data = snap.val();
-                    if (!data) {
-                        container.innerHTML = `
-                            <div class="flex flex-col items-center gap-3 py-20 text-gray-400 opacity-50">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z"/>
-                                </svg>
-                                <p class="text-sm font-bold">Belum ada pesan</p>
-                                <p class="text-xs">Jadilah yang pertama menyapa! 👋</p>
-                            </div>`;
-                        return;
-                    }
-                    const msgs = Object.entries(data).map(([k,v]) => ({key:k,...v}));
-                    container.innerHTML = '';
-                    msgs.forEach(m => renderMsg(m));
-                    if (wasBottom) container.scrollTop = container.scrollHeight;
-                });
-            }
+        // Sudah punya nama, tampilkan chat penuh
+        showChatFull(displayName);
+    }
 
-        } else {
-            // ── NOT LOGGED IN: show messages read-only, compact login bar at bottom ──
-            if (statusArea) statusArea.innerHTML = '';
+    window.chatJoin = function() {
+        const inp = document.getElementById('name-input');
+        const name = inp ? inp.value.trim() : '';
+        if (!name || name.length < 2) {
+            if (inp) { inp.classList.add('ring-2','ring-rose-500'); setTimeout(() => inp.classList.remove('ring-2','ring-rose-500'), 1500); }
+            return;
+        }
+        localStorage.setItem('chat_display_name', name);
+        setupChatUI();
+    };
 
-            // Compact login bar in input area
-            if (inputArea) inputArea.innerHTML = `
-                <div class="flex flex-col sm:flex-row items-center gap-3 py-3 px-1">
-                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium text-center sm:text-left shrink-0">
-                        Login untuk ikut ngobrol
-                    </p>
-                    <div class="flex gap-2 justify-center">
-                        <button id="login-google-btn"
-                            class="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-gray-700 rounded-2xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-md group active:scale-95">
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4 group-hover:scale-110 transition-transform">
-                            Google
-                        </button>
-                        <button id="login-github-btn"
-                            class="flex items-center gap-2 px-4 py-2.5 bg-gray-900 dark:bg-black border-2 border-gray-900 rounded-2xl text-xs font-bold text-white hover:bg-gray-800 transition-all shadow-md group active:scale-95">
-                            <svg class="w-4 h-4 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                            GitHub
+    function showChatFull(displayName) {
+        const userStatus = document.getElementById('user-status-area');
+        const inputArea = document.getElementById('chat-input-area');
+        const container = document.getElementById('messages-container');
+        const loader = document.getElementById('chat-loader');
+        const isOwner = displayName.toLowerCase().includes('kurama');
+
+        // User status bar
+        if (userStatus) {
+            userStatus.innerHTML = `
+                <div class="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-2xl border border-gray-100 dark:border-gray-700">
+                    <img src="${getAvatar(displayName)}" class="w-8 h-8 rounded-full shadow-sm">
+                    <span class="text-xs font-bold text-gray-700 dark:text-gray-200 hidden sm:block">${escapeHtml(displayName)}</span>
+                    <button onclick="window.chatLogout()" class="px-2 py-1 text-[10px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors ml-1">Keluar</button>
+                </div>
+            `;
+        }
+
+        // Input area
+        if (inputArea) {
+            inputArea.innerHTML = `
+                <div class="flex gap-3 items-end">
+                    <img src="${getAvatar(displayName)}" class="w-9 h-9 rounded-full flex-shrink-0 mb-1 hidden sm:block shadow-sm">
+                    <div class="flex-1 relative">
+                        <textarea id="message-input" rows="1" maxlength="500"
+                            placeholder="Tulis sesuatu, ${displayName.split(' ')[0]}..."
+                            class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-3xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all resize-none overflow-hidden max-h-32 pr-20 font-medium placeholder:text-gray-400 shadow-inner"></textarea>
+                        <button onclick="window.chatSend()" 
+                            class="absolute right-2 bottom-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-2xl transition-all active:scale-95 shadow-md font-bold text-xs h-[40px]">
+                            Kirim
                         </button>
                     </div>
-                </div>`;
-
-            document.getElementById('login-google-btn')?.addEventListener('click', loginGoogle);
-            document.getElementById('login-github-btn')?.addEventListener('click', loginGithub);
-
-            // Load messages in read-only mode (no delete button)
-            if (!messagesListenerActive) {
-                messagesListenerActive = true;
-                const msgRef = query(ref(db,'chat_messages'), orderByChild('ts'), limitToLast(80));
-                onValue(msgRef, snap => {
-                    if (loader) loader.remove();
-                    if (!container) return;
-                    const data = snap.val();
-                    if (!data) {
-                        container.innerHTML = `
-                            <div class="flex flex-col items-center gap-3 py-20 text-gray-400 opacity-50">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z"/>
-                                </svg>
-                                <p class="text-sm font-bold">Belum ada pesan</p>
-                                <p class="text-xs">Login dan jadilah yang pertama menyapa!</p>
-                            </div>`;
-                        return;
-                    }
-                    const msgs = Object.entries(data).map(([k,v]) => ({key:k,...v}));
-                    container.innerHTML = '';
-                    msgs.forEach(m => renderMsg(m));
-                    container.scrollTop = container.scrollHeight;
-                });
+                </div>
+            `;
+            const ta = document.getElementById('message-input');
+            if (ta) {
+                ta.addEventListener('input', function() { this.style.height='auto'; this.style.height=this.scrollHeight+'px'; });
+                ta.addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); window.chatSend(); }});
+                ta.focus();
             }
         }
+
+        // Listen to messages
+        const messagesRef = query(ref(db, 'chat_messages'), orderByChild('ts'), limitToLast(80));
+        onValue(messagesRef, (snapshot) => {
+            if (loader) loader.remove();
+            const data = snapshot.val();
+            if (!container) return;
+
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 120;
+
+            if (!data) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-gray-400 gap-3 opacity-50 py-16">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                        </svg>
+                        <p class="text-sm font-bold">Belum ada pesan</p>
+                        <p class="text-xs">Jadilah yang pertama menyapa! 👋</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const messages = Object.entries(data).map(([key, val]) => ({key, ...val}));
+            container.innerHTML = '';
+            messages.forEach(msg => renderMsg(msg, displayName));
+
+            if (wasAtBottom) container.scrollTop = container.scrollHeight;
+        });
+
+        window._chatDisplayName = displayName;
+        window._chatDb = db;
     }
 
-    // ── OAuth Login via Redirect (lebih reliable di mobile) ─────────────────
-    async function loginGoogle() {
-        try {
-            sessionStorage.setItem('chat_auth_pending', '1');
-            showLoginLoading('Google');
-            await signInWithRedirect(auth, new GoogleAuthProvider());
-        } catch(e) {
-            showLoginError(e);
-        }
-    }
-
-    async function loginGithub() {
-        try {
-            sessionStorage.setItem('chat_auth_pending', '1');
-            showLoginLoading('GitHub');
-            await signInWithRedirect(auth, new GithubAuthProvider());
-        } catch(e) {
-            showLoginError(e);
-        }
-    }
-
-    function showLoginLoading(provider) {
-        const inputArea = document.getElementById('chat-input-area');
-        if (inputArea) inputArea.innerHTML = `
-            <div class="flex flex-col items-center gap-3 py-6 text-center">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                <p class="text-sm text-gray-500 font-medium">Mengarahkan ke ${provider}...</p>
-            </div>`;
-    }
-
-    function showLoginError(e) {
-        console.error('Login error:', e);
-        const inputArea = document.getElementById('chat-input-area');
-        const errMsg = {
-            'auth/account-exists-with-different-credential': 'Email sudah dipakai akun lain. Coba login dengan Google.',
-            'auth/unauthorized-domain': 'Domain belum diizinkan. Tambahkan domain ini di Firebase Console → Authentication → Settings → Authorized domains.',
-            'auth/operation-not-allowed': 'Metode login ini belum diaktifkan di Firebase Console → Authentication → Sign-in method.',
-            'auth/network-request-failed': 'Gagal terhubung ke internet. Cek koneksi dan coba lagi.',
-        }[e.code] || ('Error: ' + (e.message || e.code));
-
-        if (inputArea) inputArea.innerHTML = `
-            <div class="flex flex-col items-center gap-3 py-4">
-                <div class="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-2xl p-4 max-w-sm text-center">
-                    <p class="text-rose-600 dark:text-rose-400 text-xs font-bold mb-1">⚠️ Login Gagal</p>
-                    <p class="text-rose-500 dark:text-rose-300 text-xs">${errMsg}</p>
-                </div>
-                <div class="flex gap-3">
-                    <button id="login-google-btn"
-                        class="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:border-primary-400 transition-all shadow-sm active:scale-95">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4">Google
-                    </button>
-                    <button id="login-github-btn"
-                        class="flex items-center gap-2 px-5 py-2.5 bg-gray-900 dark:bg-black border-2 border-gray-900 rounded-2xl text-sm font-bold text-white hover:bg-gray-800 transition-all shadow-sm active:scale-95">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>GitHub
-                    </button>
-                </div>
-            </div>`;
-        document.getElementById('login-google-btn')?.addEventListener('click', loginGoogle);
-        document.getElementById('login-github-btn')?.addEventListener('click', loginGithub);
-    }
-
-    // ── Handle redirect result setelah kembali dari OAuth ─────────────────
-    getRedirectResult(auth).then(result => {
-        if (result?.user) {
-            sessionStorage.removeItem('chat_auth_pending');
-            // Otomatis ke halaman chat
-            if (typeof showPage === 'function') showPage('chat');
-        }
-    }).catch(e => {
-        sessionStorage.removeItem('chat_auth_pending');
-        if (e.code && e.code !== 'auth/no-auth-event') {
-            showLoginError(e);
-            if (typeof showPage === 'function') showPage('chat');
-        }
-    });
-
-    // Jika user kembali setelah redirect, langsung buka halaman chat
-    if (sessionStorage.getItem('chat_auth_pending')) {
-        sessionStorage.removeItem('chat_auth_pending');
-        if (typeof showPage === 'function') showPage('chat');
-    }
-
-    // ── Send message ─────────────────────────────────────
-    async function sendMsg() {
-        if (!currentUser) return;
-        const inp = document.getElementById('message-input');
-        const btn = document.getElementById('chat-send-btn');
-        if (!inp) return;
-        const text = inp.value.trim();
-        if (!text) return;
-
-        if (inp) inp.disabled = true;
-        if (btn) btn.disabled = true;
-
-        try {
-            await push(ref(db, 'chat_messages'), {
-                uid:   currentUser.uid,
-                name:  currentUser.displayName || 'User',
-                photo: currentUser.photoURL || '',
-                text:  text,
-                ts:    serverTimestamp()
-            });
-            inp.value = '';
-            inp.style.height = 'auto';
-        } catch(e) { console.error(e); }
-        finally {
-            if (inp) { inp.disabled = false; inp.focus(); }
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    // ── Render single message ────────────────────────────
-    function renderMsg(msg) {
+    function renderMsg(msg, myName) {
         const container = document.getElementById('messages-container');
         if (!container) return;
-        const isOwner = (msg.name || '').toLowerCase().includes('kayzen0276');
-        const iAmOwner = currentUser && (currentUser.displayName || '').toLowerCase().includes('kayzen0276');
-        const photo   = msg.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((msg.name||'U')[0])}&background=0D9489&color=fff&bold=true`;
+        const isMe = msg.name === myName;
+        const isOwner = (msg.name || '').toLowerCase().includes('kurama');
+        const ts = formatTime(msg.ts);
 
-        container.insertAdjacentHTML('beforeend', `
+        const html = `
             <div class="flex gap-3 md:gap-4 group" data-key="${msg.key}">
                 <div class="flex-shrink-0">
-                    <img src="${escapeHtml(photo)}" referrerpolicy="no-referrer"
-                        class="w-10 h-10 md:w-11 md:h-11 rounded-full shadow-sm border-2 border-white dark:border-slate-800 object-cover">
+                    <img src="${getAvatar(msg.name)}" class="w-10 h-10 md:w-11 md:h-11 rounded-full shadow-sm border-2 border-white dark:border-slate-800">
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap mb-1.5">
-                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">${escapeHtml(msg.name || 'User')}</span>
-                        ${isOwner ? `<span class="px-2 py-0.5 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase tracking-tight flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4.13-5.68Z" clip-rule="evenodd"/></svg>
-                            Owner</span>` : ''}
-                        <span class="text-[10px] text-gray-400">${formatTime(msg.ts)}</span>
-                        ${iAmOwner ? `<button class="chat-del-btn ml-auto opacity-0 group-hover:opacity-100 text-[10px] font-bold text-rose-400 hover:text-rose-600 transition-opacity" data-key="${msg.key}">Hapus</button>` : ''}
+                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">${escapeHtml(msg.name || 'Anonim')}</span>
+                        ${isOwner ? `<span class="px-2 py-0.5 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase tracking-tight flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4.13-5.68Z" clip-rule="evenodd" /></svg>Owner</span>` : ''}
+                        <span class="text-[10px] text-gray-400">${ts}</span>
+                        ${isMe ? `<button onclick="window.chatDelete('${msg.key}')" class="ml-auto opacity-0 group-hover:opacity-100 text-[10px] font-bold text-rose-400 hover:text-rose-600 transition-opacity">Hapus</button>` : ''}
                     </div>
                     <div class="inline-block bg-white dark:bg-slate-800/60 border border-gray-100 dark:border-gray-700/50 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm hover:shadow-md transition-shadow max-w-[90%] md:max-w-[75%]">
                         <p class="text-[13px] md:text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed break-words whitespace-pre-wrap">${escapeHtml(msg.text || '')}</p>
                     </div>
                 </div>
-            </div>`);
-
-        // Attach delete handler
-        container.querySelectorAll('.chat-del-btn').forEach(btn => {
-            btn.onclick = async () => {
-                if (!confirm('Hapus pesan ini?')) return;
-                try { await remove(ref(db, 'chat_messages/' + btn.dataset.key)); } catch(e) {}
-            };
-        });
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
     }
 
-    // ── Expose for page switching ────────────────────────
-    window.chatInit = function() { renderChatUI(); };
+    window.chatSend = async function() {
+        const inp = document.getElementById('message-input');
+        const name = window._chatDisplayName || localStorage.getItem('chat_display_name');
+        if (!inp || !name || !db) return;
+        const text = inp.value.trim();
+        if (!text) return;
+
+        inp.disabled = true;
+        try {
+            await push(ref(db, 'chat_messages'), {
+                name: name,
+                text: text,
+                ts: serverTimestamp()
+            });
+            inp.value = '';
+            inp.style.height = 'auto';
+        } catch(e) {
+            console.error('Send failed:', e);
+        } finally {
+            inp.disabled = false;
+            inp.focus();
+        }
+    };
+
+    window.chatDelete = async function(key) {
+        if (!db || !key) return;
+        if (!confirm('Hapus pesan ini?')) return;
+        try {
+            await remove(ref(db, 'chat_messages/' + key));
+        } catch(e) { console.error(e); }
+    };
+
+    window.chatLogout = function() {
+        localStorage.removeItem('chat_display_name');
+        window._chatDisplayName = null;
+        const statusArea = document.getElementById('user-status-area');
+        const inputArea = document.getElementById('chat-input-area');
+        if (statusArea) statusArea.innerHTML = '';
+        if (inputArea) inputArea.innerHTML = '';
+        setupChatUI();
+    };
+
+    // Expose for page switching
+    window.chatInit = function() {
+        if (!chatConfigOk) { showSetupGuide(); return; }
+        if (!auth) return;
+        const user = auth.currentUser;
+        if (user) {
+            currentUser = user;
+            setupChatUI();
+        }
+    };
     </script>
     
     <script>
