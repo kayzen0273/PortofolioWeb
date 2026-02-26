@@ -1986,53 +1986,6 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
             const [priceModal, setPriceModal] = useState({ show: false, item: null, selectedPrice: 0, selectedUnit: '', qty: 1, discountType: '%', discountValue: 0 }); // Modal pilih harga
             const [editingCartItem, setEditingCartItem] = useState(null); // Track item yang sedang diedit dari cart
 
-            // === RECOVERY: Saat refresh, cek apakah ada active_cart yang tertinggal ===
-            // Jika ada, otomatis pindahkan ke pending_carts di Firestore (bukan localStorage)
-            useEffect(() => {
-                if (!user) return;
-                const savedActiveCartId = localStorage.getItem('activeCartId');
-                if (!savedActiveCartId) return;
-
-                const recoverStaleCart = async () => {
-                    try {
-                        const cartRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'active_carts', savedActiveCartId);
-                        const cartSnap = await window.getDoc(cartRef);
-
-                        if (cartSnap.exists()) {
-                            const cartData = cartSnap.data();
-                            // Hanya proses jika milik toko yang sama dan ada item
-                            if (cartData.items && cartData.items.length > 0 && cartData.storeId === currentProfile.id) {
-                                // Pindahkan ke pending_carts di Firestore
-                                await window.addDoc(
-                                    window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'pending_carts'),
-                                    {
-                                        date: new Date().toISOString(),
-                                        items: cartData.items,
-                                        total: cartData.total || 0,
-                                        cashierName: cartData.cashierName || localStorage.getItem('cashierName') || 'Kasir',
-                                        device: navigator.userAgent,
-                                        storeProfile: cartData.storeName || currentProfile.name,
-                                        storeId: cartData.storeId || currentProfile.id,
-                                        createdAt: window.serverTimestamp(),
-                                        savedReason: 'page_refresh'
-                                    }
-                                );
-                                showToast("Keranjang sebelumnya disimpan otomatis sebagai Tertunda 🕐", "info");
-                            }
-                            // Hapus dari active_carts agar tidak double
-                            await window.deleteDoc(cartRef);
-                        }
-                    } catch (error) {
-                        console.error('Error recovering stale cart:', error);
-                    } finally {
-                        // Bersihkan referensi ID dari localStorage
-                        localStorage.removeItem('activeCartId');
-                    }
-                };
-
-                recoverStaleCart();
-            }, [user]); // Jalankan sekali saat user siap
-
             useEffect(() => {
                 if (!user) return;
                 const q = window.query(
@@ -2135,7 +2088,6 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                     setIsSessionActive(true);
                     setShowCashierModal(false);
                     localStorage.setItem('cashierName', finalName);
-                    localStorage.setItem('activeCartId', cartRef.id);
                     showToast(`Selamat bekerja, ${finalName}! 🎉`);
                 } catch (error) { console.error('Error starting session:', error); showToast("Gagal memulai sesi", "error"); }
             };
@@ -2476,7 +2428,6 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                 setSearch(''); 
                 setCart([]);
                 setActiveCartId(null);
-                localStorage.removeItem('activeCartId');
                 // cashierName TETAP disimpan untuk sesi berikutnya
             };
             
@@ -2495,7 +2446,6 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                 setSearch(''); 
                 setCancelModal(false); 
                 setActiveCartId(null);
-                localStorage.removeItem('activeCartId');
                 showToast("Transaksi dibatalkan & keranjang dikosongkan", "info");
                 setIsSessionActive(false);
             };
