@@ -4004,83 +4004,12 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                     window.orderBy('updatedAt', 'desc')
                 );
                 const unsubActive = window.onSnapshot(qActive, (snap) => {
-                    const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 menit
-                    const now = Date.now();
-                    const count = snap.docs.filter(d => {
-                        const data = d.data();
-                        if (data.storeId !== storeId || !data.isActive) return false;
-                        // Cek apakah cart masih aktif (diupdate dalam 30 menit terakhir)
-                        const updatedAt = data.updatedAt?.toDate?.()?.getTime() || 0;
-                        return (now - updatedAt) < STALE_THRESHOLD_MS;
-                    }).length;
+                    const count = snap.docs.filter(d => d.data().storeId === storeId && d.data().isActive).length;
                     setNotifCounts(prev => ({ ...prev, activeCarts: count }));
                 });
 
                 return () => { unsubPending(); unsubActive(); };
             }, [user, activeStoreId, settingsData]);
-
-            // AUTO-CLEANUP: Hapus active_carts yang basi (>30 menit tidak diupdate) saat user login
-            useEffect(() => {
-                if (!user) return;
-                const cleanupStaleActiveCarts = async () => {
-                    try {
-                        const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 menit
-                        const now = Date.now();
-                        const snap = await window.getDocs(
-                            window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'active_carts')
-                        );
-                        const batch = window.writeBatch(window.db);
-                        let staleCount = 0;
-                        snap.docs.forEach(docSnap => {
-                            const data = docSnap.data();
-                            const updatedAt = data.updatedAt?.toDate?.()?.getTime() || 0;
-                            const isStale = (now - updatedAt) > STALE_THRESHOLD_MS;
-                            if (isStale) {
-                                batch.delete(docSnap.ref);
-                                staleCount++;
-                            }
-                        });
-                        if (staleCount > 0) {
-                            await batch.commit();
-                            console.log(`[Cleanup] Dihapus ${staleCount} active_cart basi`);
-                        }
-                    } catch (error) {
-                        console.error('Error cleaning up stale active_carts:', error);
-                    }
-                };
-                // Jalankan cleanup 3 detik setelah user siap (beri waktu UI render)
-                const timer = setTimeout(cleanupStaleActiveCarts, 3000);
-                return () => clearTimeout(timer);
-            }, [user]);
-
-            // Manual reset: hapus semua active_carts milik toko ini dari Firestore
-            const handleResetActiveCarts = async () => {
-                if (!user) return;
-                try {
-                    const snap = await window.getDocs(
-                        window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'active_carts')
-                    );
-                    const batch = window.writeBatch(window.db);
-                    let count = 0;
-                    snap.docs.forEach(docSnap => {
-                        const data = docSnap.data();
-                        if (data.storeId === activeStoreId || activeStoreId === 'all_stores') {
-                            batch.delete(docSnap.ref);
-                            count++;
-                        }
-                    });
-                    if (count > 0) {
-                        await batch.commit();
-                        showToast(`✅ ${count} keranjang aktif berhasil dibersihkan`, "success");
-                    } else {
-                        showToast("Tidak ada keranjang aktif yang perlu dibersihkan", "info");
-                    }
-                    setNotifCounts(prev => ({ ...prev, activeCarts: 0 }));
-                } catch (error) {
-                    console.error('Error resetting active carts:', error);
-                    showToast("Gagal membersihkan keranjang", "error");
-                }
-            };
 
             const uniqueRacksData = useMemo(() => {
                 const rackMap = new Map();
@@ -4166,7 +4095,7 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
             const handleNavClick = (tabId, event) => { setActiveTab(tabId); if (tabId !== 'list') setShowOnlyLowStock(false); setIsSidebarOpen(false); };
             
             const menuItems = [ 
-                { id: 'cashier', label: 'Kasir', icon: 'cash-register', enabled: settingsData.enableCashier !== false, badge: 0 }, 
+                { id: 'cashier', label: 'Kasir', icon: 'cash-register', enabled: settingsData.enableCashier !== false, badge: notifCounts.pendingCarts }, 
                 { id: 'history', label: 'Riwayat', icon: 'clock-rotate-left', enabled: settingsData.enableHistory !== false }, 
                 { id: 'purchases', label: 'Faktur Pembelian', icon: 'file-invoice-dollar', enabled: settingsData.enablePurchases !== false }, 
                 { id: 'home', label: 'Dashboard', icon: 'chart-pie', enabled: true }, 
@@ -4246,16 +4175,7 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                                 </div>
                                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-slate-600 p-2"><Icon name="xmark" className="text-xl" /></button>
                             </div>
-                            <nav className="space-y-2 flex-1">{visibleMenuItems.map(menu => (
-                                <div key={menu.id} className="relative group/nav">
-                                    <button onClick={(e) => handleNavClick(menu.id, e)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 relative overflow-hidden group ${activeTab === menu.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100'}`}>
-                                        <div className="relative w-5 flex-shrink-0">
-                                            <Icon name={menu.icon} className={`text-base ${activeTab === menu.id ? 'text-white' : 'text-slate-400'}`} />
-                                        </div>
-                                        <span className="flex-1 text-left">{menu.label}</span>
-                                    </button>
-                                </div>
-                            ))}</nav>
+                            <nav className="space-y-2 flex-1">{visibleMenuItems.map(menu => (<button key={menu.id} onClick={(e) => handleNavClick(menu.id, e)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 relative overflow-hidden group ${activeTab === menu.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100'}`}><div className="relative w-5 flex-shrink-0"><Icon name={menu.icon} className={`text-base ${activeTab === menu.id ? 'text-white' : 'text-slate-400'}`} />{menu.badge > 0 && <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center leading-none shadow-sm animate-pulse">{menu.badge > 9 ? '9+' : menu.badge}</span>}</div><span className="flex-1 text-left">{menu.label}</span>{menu.badge > 0 && activeTab !== menu.id && <span className="text-[9px] bg-red-100 text-red-600 font-black px-1.5 py-0.5 rounded-full border border-red-200">{menu.badge} baru</span>}</button>))}</nav>
                             <div className="mt-auto pt-6 border-t border-slate-100"><p className="text-[10px] text-center text-slate-400">Versi 43 • Metode Pembayaran</p></div>
                         </div>
                     </aside>
