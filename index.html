@@ -1986,6 +1986,53 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
             const [priceModal, setPriceModal] = useState({ show: false, item: null, selectedPrice: 0, selectedUnit: '', qty: 1, discountType: '%', discountValue: 0 }); // Modal pilih harga
             const [editingCartItem, setEditingCartItem] = useState(null); // Track item yang sedang diedit dari cart
 
+            // === RECOVERY: Saat refresh, cek apakah ada active_cart yang tertinggal ===
+            // Jika ada, otomatis pindahkan ke pending_carts di Firestore (bukan localStorage)
+            useEffect(() => {
+                if (!user) return;
+                const savedActiveCartId = localStorage.getItem('activeCartId');
+                if (!savedActiveCartId) return;
+
+                const recoverStaleCart = async () => {
+                    try {
+                        const cartRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'active_carts', savedActiveCartId);
+                        const cartSnap = await window.getDoc(cartRef);
+
+                        if (cartSnap.exists()) {
+                            const cartData = cartSnap.data();
+                            // Hanya proses jika milik toko yang sama dan ada item
+                            if (cartData.items && cartData.items.length > 0 && cartData.storeId === currentProfile.id) {
+                                // Pindahkan ke pending_carts di Firestore
+                                await window.addDoc(
+                                    window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'pending_carts'),
+                                    {
+                                        date: new Date().toISOString(),
+                                        items: cartData.items,
+                                        total: cartData.total || 0,
+                                        cashierName: cartData.cashierName || localStorage.getItem('cashierName') || 'Kasir',
+                                        device: navigator.userAgent,
+                                        storeProfile: cartData.storeName || currentProfile.name,
+                                        storeId: cartData.storeId || currentProfile.id,
+                                        createdAt: window.serverTimestamp(),
+                                        savedReason: 'page_refresh'
+                                    }
+                                );
+                                showToast("Keranjang sebelumnya disimpan otomatis sebagai Tertunda 🕐", "info");
+                            }
+                            // Hapus dari active_carts agar tidak double
+                            await window.deleteDoc(cartRef);
+                        }
+                    } catch (error) {
+                        console.error('Error recovering stale cart:', error);
+                    } finally {
+                        // Bersihkan referensi ID dari localStorage
+                        localStorage.removeItem('activeCartId');
+                    }
+                };
+
+                recoverStaleCart();
+            }, [user]); // Jalankan sekali saat user siap
+
             useEffect(() => {
                 if (!user) return;
                 const q = window.query(
@@ -2009,13 +2056,17 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                     window.orderBy('updatedAt', 'desc')
                 );
                 const unsub = window.onSnapshot(q, (snapshot) => {
+                    const STALE_MS = 5 * 60 * 1000; // 5 menit
+                    const now = Date.now();
                     const allActiveCarts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // Filter: hanya tampilkan cart dari toko yang sama dan bukan cart milik sendiri
-                    const filtered = allActiveCarts.filter(c => 
-                        (c.storeId === currentProfile.id) && 
-                        (c.id !== activeCartId) &&
-                        c.isActive
-                    );
+                    // Filter: hanya tampilkan cart dari toko yang sama, bukan milik sendiri, fresh (< 5 menit)
+                    const filtered = allActiveCarts.filter(c => {
+                        if (c.storeId !== currentProfile.id) return false;
+                        if (c.id === activeCartId) return false;
+                        if (!c.isActive) return false;
+                        const updatedAt = c.updatedAt?.toMillis ? c.updatedAt.toMillis() : (c.updatedAt?.seconds ? c.updatedAt.seconds * 1000 : 0);
+                        return updatedAt && (now - updatedAt) < STALE_MS;
+                    });
                     setActiveCarts(filtered);
                 });
                 return () => unsub();
@@ -2074,6 +2125,18 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                 return () => unsub();
             }, [isSessionActive, activeCartId]);
 
+            // Heartbeat: update updatedAt setiap 2 menit supaya cart tidak dianggap stale
+            useEffect(() => {
+                if (!isSessionActive || !activeCartId) return;
+                const heartbeat = setInterval(async () => {
+                    try {
+                        const cartRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'active_carts', activeCartId);
+                        await window.updateDoc(cartRef, { updatedAt: window.serverTimestamp() });
+                    } catch (e) { /* silent fail */ }
+                }, 2 * 60 * 1000); // setiap 2 menit
+                return () => clearInterval(heartbeat);
+            }, [isSessionActive, activeCartId]);
+
             // Mulai sesi kasir baru (tanpa preload items)
             const handleStartSession = async (name) => {
                 const finalName = (name || '').trim();
@@ -2088,6 +2151,7 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                     setIsSessionActive(true);
                     setShowCashierModal(false);
                     localStorage.setItem('cashierName', finalName);
+                    localStorage.setItem('activeCartId', cartRef.id);
                     showToast(`Selamat bekerja, ${finalName}! 🎉`);
                 } catch (error) { console.error('Error starting session:', error); showToast("Gagal memulai sesi", "error"); }
             };
@@ -2428,6 +2492,7 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                 setSearch(''); 
                 setCart([]);
                 setActiveCartId(null);
+                localStorage.removeItem('activeCartId');
                 // cashierName TETAP disimpan untuk sesi berikutnya
             };
             
@@ -2446,6 +2511,7 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                 setSearch(''); 
                 setCancelModal(false); 
                 setActiveCartId(null);
+                localStorage.removeItem('activeCartId');
                 showToast("Transaksi dibatalkan & keranjang dikosongkan", "info");
                 setIsSessionActive(false);
             };
@@ -4004,8 +4070,24 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                     window.orderBy('updatedAt', 'desc')
                 );
                 const unsubActive = window.onSnapshot(qActive, (snap) => {
-                    const count = snap.docs.filter(d => d.data().storeId === storeId && d.data().isActive).length;
+                    const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 menit
+                    const now = Date.now();
+                    const staleIds = [];
+                    const count = snap.docs.filter(d => {
+                        const data = d.data();
+                        if (data.storeId !== storeId || !data.isActive) return false;
+                        // Cek apakah cart masih fresh (dalam 5 menit terakhir)
+                        const updatedAt = data.updatedAt?.toMillis ? data.updatedAt.toMillis() : (data.updatedAt?.seconds ? data.updatedAt.seconds * 1000 : 0);
+                        const isFresh = updatedAt && (now - updatedAt) < STALE_THRESHOLD_MS;
+                        if (!isFresh) { staleIds.push(d.id); return false; }
+                        return true;
+                    }).length;
                     setNotifCounts(prev => ({ ...prev, activeCarts: count }));
+                    // Auto-hapus dokumen active_cart yang stale dari Firestore
+                    staleIds.forEach(id => {
+                        window.deleteDoc(window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'active_carts', id))
+                            .catch(e => console.warn('Gagal hapus stale active_cart:', id, e));
+                    });
                 });
 
                 return () => { unsubPending(); unsubActive(); };
