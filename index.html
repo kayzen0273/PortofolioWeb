@@ -4251,20 +4251,9 @@ ${totalExp > 0 ? `💵 *Sisa Setelah Expense:* ${formatRupiah(netBalance)}\n` : 
                                     <button onClick={(e) => handleNavClick(menu.id, e)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 relative overflow-hidden group ${activeTab === menu.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100'}`}>
                                         <div className="relative w-5 flex-shrink-0">
                                             <Icon name={menu.icon} className={`text-base ${activeTab === menu.id ? 'text-white' : 'text-slate-400'}`} />
-                                            {menu.badge > 0 && <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center leading-none shadow-sm animate-pulse">{menu.badge > 9 ? '9+' : menu.badge}</span>}
                                         </div>
                                         <span className="flex-1 text-left">{menu.label}</span>
-                                        {menu.badge > 0 && activeTab !== menu.id && <span className="text-[9px] bg-red-100 text-red-600 font-black px-1.5 py-0.5 rounded-full border border-red-200">{menu.badge} baru</span>}
                                     </button>
-                                    {menu.id === 'cashier' && notifCounts.activeCarts > 0 && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); if (window.confirm('Bersihkan semua keranjang kasir aktif yang tertinggal?')) handleResetActiveCarts(); }}
-                                            title="Bersihkan notif kasir aktif yang basi"
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/nav:opacity-100 transition-opacity bg-red-100 hover:bg-red-200 text-red-600 rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1"
-                                        >
-                                            <Icon name="broom" className="text-[10px]" /> Reset
-                                        </button>
-                                    )}
                                 </div>
                             ))}</nav>
                             <div className="mt-auto pt-6 border-t border-slate-100"><p className="text-[10px] text-center text-slate-400">Versi 43 • Metode Pembayaran</p></div>
